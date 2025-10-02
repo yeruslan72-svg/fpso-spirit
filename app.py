@@ -16,22 +16,16 @@ st.set_page_config(
 # Initialize session state
 if 'monitoring_active' not in st.session_state:
     st.session_state.monitoring_active = False
+if 'emergency_stop' not in st.session_state:
+    st.session_state.emergency_stop = False
 if 'system_data' not in st.session_state:
     st.session_state.system_data = {}
 if 'risk_level' not in st.session_state:
     st.session_state.risk_level = "LOW"
 if 'cycle_count' not in st.session_state:
     st.session_state.cycle_count = 0
-
-# System Configuration
-class FPSOIndustrialConfig:
-    """FPSO System Configuration"""
-    
-    BALLAST_SYSTEM = {
-        'BALLAST_PUMP_VIB': 'Ballast Pump - Vibration',
-        'BALLAST_PUMP_TEMP': 'Ballast Pump - Temperature',
-        'BALLAST_VALVE_POSITION': 'Ballast Valve Position',
-    }
+if 'last_update' not in st.session_state:
+    st.session_state.last_update = datetime.now()
 
 def generate_sensor_data():
     """Generate realistic sensor data"""
@@ -235,27 +229,52 @@ def main():
     st.title("🌊 FPSO Spirit - Digital Soul of Floating Production")
     st.markdown("### *Where Engineering Meets Consciousness*")
 
-    # Update data if monitoring is active
-    if st.session_state.monitoring_active:
-        st.session_state.system_data = generate_sensor_data()
-        st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
-        st.session_state.cycle_count += 1
+    # Auto-refresh logic (only if not in emergency stop)
+    if st.session_state.monitoring_active and not st.session_state.emergency_stop:
+        current_time = datetime.now()
+        time_diff = (current_time - st.session_state.last_update).total_seconds()
+        
+        # Update data every 3 seconds
+        if time_diff >= 3:
+            st.session_state.system_data = generate_sensor_data()
+            st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
+            st.session_state.cycle_count += 1
+            st.session_state.last_update = current_time
+            
+            # Use Streamlit's built-in auto-refresh
+            st.rerun()
 
-    # System Status
-    if st.session_state.monitoring_active:
-        st.success(f"🚀 ACTIVE MONITORING - Cycle #{st.session_state.cycle_count}")
-        # Show auto-refresh info
-        st.info("🔄 System is actively monitoring. Click 'Stop Monitoring' to pause.")
+    # System Status with Emergency Stop indicator
+    if st.session_state.emergency_stop:
+        st.error("🚨🚨🚨 EMERGENCY STOP ACTIVATED - ALL SYSTEMS HALTED 🚨🚨🚨")
+        st.warning("⚠️ Acknowledge emergency stop to resume operations")
+        
+    elif st.session_state.monitoring_active:
+        st.success(f"🚀 LIVE MONITORING - Cycle #{st.session_state.cycle_count}")
+        
+        # Animation indicator
+        with st.empty():
+            animation_frames = ["🌊", "🌀", "⚡", "✨"]
+            current_frame = animation_frames[st.session_state.cycle_count % len(animation_frames)]
+            st.markdown(f"### {current_frame} **REAL-TIME DATA STREAMING** {current_frame}")
+            
+        # Next update countdown
+        next_update = 3 - (datetime.now() - st.session_state.last_update).total_seconds()
+        st.info(f"🔄 Next update in: {max(0, int(next_update))} seconds")
+        
     else:
-        st.info("🟡 SYSTEM READY - Click 'Start Monitoring' to begin")
+        st.info("🟡 SYSTEM READY - Click 'Start Monitoring' to begin live data streaming")
 
     # Dashboard Columns
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        status = "ACTIVE" if st.session_state.monitoring_active else "STANDBY"
-        color = "🟢" if st.session_state.monitoring_active else "🟡"
-        st.metric("System Status", f"{color} {status}")
+        if st.session_state.emergency_stop:
+            st.error("🚨 EMERGENCY STOP")
+        else:
+            status = "ACTIVE" if st.session_state.monitoring_active else "STANDBY"
+            color = "🟢" if st.session_state.monitoring_active else "🟡"
+            st.metric("System Status", f"{color} {status}")
         
     with col2:
         risk_color = {
@@ -267,85 +286,149 @@ def main():
         st.metric("Risk Level", f"{risk_color} {st.session_state.risk_level}")
 
     with col3:
-        systems = "6/8" if st.session_state.monitoring_active else "0/8"
-        st.metric("Active Systems", systems)
+        if st.session_state.emergency_stop:
+            st.error("SYSTEMS OFFLINE")
+        else:
+            systems = "6/8" if st.session_state.monitoring_active else "0/8"
+            st.metric("Active Systems", systems)
 
     with col4:
         st.metric("Data Cycles", st.session_state.cycle_count)
 
-    # System Overview
+    # System Overview with animated progress bars (only if not emergency stop)
     st.subheader("🎯 System Consciousness States")
 
-    base_awareness = {
-        "Ballast System": 96,
-        "IGS System": 98, 
-        "Fire System": 95,
-        "Power System": 92,
-        "Production": 94,
-        "Cargo Heating": 91
-    }
+    if st.session_state.emergency_stop:
+        st.error("🔴 ALL SYSTEMS OFFLINE - EMERGENCY STOP ACTIVE")
+        for system in ["Ballast System", "IGS System", "Fire System", "Power System", "Production", "Cargo Heating"]:
+            st.progress(0, f"{system}: OFFLINE (0%)")
+    else:
+        base_awareness = {
+            "Ballast System": 96,
+            "IGS System": 98, 
+            "Fire System": 95,
+            "Power System": 92,
+            "Production": 94,
+            "Cargo Heating": 91
+        }
 
-    # Adjust awareness based on risk level
-    risk_modifier = {
-        "CRITICAL": -20,
-        "HIGH": -10,
-        "MEDIUM": -5,
-        "LOW": 0
-    }.get(st.session_state.risk_level, 0)
+        # Adjust awareness based on risk level and add animation
+        risk_modifier = {
+            "CRITICAL": -20,
+            "HIGH": -10,
+            "MEDIUM": -5,
+            "LOW": 0
+        }.get(st.session_state.risk_level, 0)
 
-    for system, awareness in base_awareness.items():
-        adjusted_awareness = max(50, awareness + risk_modifier)
-        state = "ALERT" if risk_modifier < -5 else "NORMAL"
-        st.progress(adjusted_awareness/100, f"{system}: {state} ({adjusted_awareness}%)")
+        # Add subtle animation to awareness values
+        animation_offset = np.sin(st.session_state.cycle_count * 0.5) * 2 if st.session_state.monitoring_active else 0
 
-    # Systems Monitoring
-    display_ballast_monitoring()
-    display_fire_system_monitoring()
-    display_cargo_heating_monitoring()
+        for system, awareness in base_awareness.items():
+            adjusted_awareness = max(50, min(100, awareness + risk_modifier + animation_offset))
+            state = "ALERT" if risk_modifier < -5 else "NORMAL"
+            
+            # Animated progress bar
+            progress_html = f"""
+            <div style="background: #262730; padding: 10px; border-radius: 10px; margin: 5px 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>{system}</span>
+                    <span>{state} ({adjusted_awareness:.0f}%)</span>
+                </div>
+                <div style="background: #1E88E5; height: 20px; border-radius: 10px; width: {adjusted_awareness}%; 
+                         transition: width 0.5s ease-in-out; animation: pulse 2s infinite;">
+                </div>
+            </div>
+            <style>
+            @keyframes pulse {{
+                0% {{ opacity: 1; }}
+                50% {{ opacity: 0.7; }}
+                100% {{ opacity: 1; }}
+            }}
+            </style>
+            """
+            st.markdown(progress_html, unsafe_allow_html=True)
 
-    # Manual refresh button for active monitoring
-    if st.session_state.monitoring_active:
-        if st.button("🔄 Refresh Data Now", type="secondary"):
-            st.session_state.system_data = generate_sensor_data()
-            st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
-            st.session_state.cycle_count += 1
-            st.rerun()
+    # Systems Monitoring (only if not emergency stop)
+    if not st.session_state.emergency_stop:
+        display_ballast_monitoring()
+        display_fire_system_monitoring()
+        display_cargo_heating_monitoring()
+
+        # Manual refresh option
+        if st.session_state.monitoring_active:
+            col1, col2 = st.columns([3, 1])
+            with col2:
+                if st.button("🔄 Force Update", type="secondary"):
+                    st.session_state.system_data = generate_sensor_data()
+                    st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
+                    st.session_state.cycle_count += 1
+                    st.session_state.last_update = datetime.now()
+                    st.rerun()
 
     # Footer
     st.markdown("---")
-    st.caption(f"FPSO Spirit v1.1 | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Breathing consciousness into steel")
+    st.caption(f"FPSO Spirit v1.3 | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Breathing consciousness into steel")
 
-    # Sidebar
+    # Sidebar with Emergency Stop
     with st.sidebar:
         st.header("🎛️ Control Panel")
         
-        if not st.session_state.monitoring_active:
-            if st.button("⚡ Start Monitoring", type="primary", use_container_width=True):
-                st.session_state.monitoring_active = True
-                st.session_state.system_data = generate_sensor_data()
-                st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
-                st.session_state.cycle_count = 1
-                st.rerun()
-        else:
-            if st.button("🛑 Stop Monitoring", type="secondary", use_container_width=True):
+        if st.session_state.emergency_stop:
+            # Emergency Stop Active - Show acknowledge button
+            st.error("🚨 EMERGENCY STOP ACTIVE")
+            if st.button("✅ Acknowledge & Reset", type="primary", use_container_width=True):
+                st.session_state.emergency_stop = False
                 st.session_state.monitoring_active = False
                 st.rerun()
+                
+        else:
+            # Normal operation
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if not st.session_state.monitoring_active:
+                    if st.button("⚡ Start", type="primary", use_container_width=True):
+                        st.session_state.monitoring_active = True
+                        st.session_state.system_data = generate_sensor_data()
+                        st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
+                        st.session_state.cycle_count = 1
+                        st.session_state.last_update = datetime.now()
+                        st.rerun()
+                else:
+                    if st.button("⏸️ Stop", type="secondary", use_container_width=True):
+                        st.session_state.monitoring_active = False
+                        st.rerun()
+            
+            with col2:
+                if st.button("🛑 E-Stop", type="secondary", use_container_width=True, 
+                           help="Immediate system shutdown"):
+                    st.session_state.emergency_stop = True
+                    st.session_state.monitoring_active = False
+                    st.rerun()
         
         st.markdown("---")
-        st.subheader("System Info")
-        st.write(f"**Status:** {'ACTIVE' if st.session_state.monitoring_active else 'STANDBY'}")
-        st.write(f"**Risk Level:** {st.session_state.risk_level}")
-        st.write(f"**Cycles Completed:** {st.session_state.cycle_count}")
-        st.write(f"**Last Update:** {datetime.now().strftime('%H:%M:%S')}")
+        st.subheader("System Status")
+        
+        if st.session_state.emergency_stop:
+            st.error("**Status:** EMERGENCY STOP")
+            st.error("**All Systems:** OFFLINE")
+        else:
+            st.write(f"**Monitoring:** {'🟢 ACTIVE' if st.session_state.monitoring_active else '🟡 STANDBY'}")
+            st.write(f"**Risk Level:** {st.session_state.risk_level}")
+        
+        st.write(f"**Cycles:** {st.session_state.cycle_count}")
+        st.write(f"**Last Update:** {st.session_state.last_update.strftime('%H:%M:%S')}")
         
         st.markdown("---")
         st.subheader("Quick Actions")
-        if st.button("🔄 Simulate Data Update", use_container_width=True):
-            st.session_state.system_data = generate_sensor_data()
-            st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
-            if st.session_state.monitoring_active:
-                st.session_state.cycle_count += 1
-            st.rerun()
+        
+        if not st.session_state.emergency_stop:
+            if st.button("🎲 Simulate Data", use_container_width=True):
+                st.session_state.system_data = generate_sensor_data()
+                st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
+                if st.session_state.monitoring_active:
+                    st.session_state.cycle_count += 1
+                st.rerun()
 
 if __name__ == "__main__":
     main()
