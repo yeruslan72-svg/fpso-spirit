@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import time
 
 # Page Configuration
 st.set_page_config(
@@ -12,11 +13,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize session state
+if 'monitoring_active' not in st.session_state:
+    st.session_state.monitoring_active = False
+if 'system_data' not in st.session_state:
+    st.session_state.system_data = {}
+if 'risk_level' not in st.session_state:
+    st.session_state.risk_level = "LOW"
+
 # System Configuration
 class FPSOIndustrialConfig:
     """FPSO System Configuration"""
     
-    # BALLAST SYSTEM
     BALLAST_SYSTEM = {
         'BALLAST_PUMP_VIB': 'Ballast Pump - Vibration',
         'BALLAST_PUMP_TEMP': 'Ballast Pump - Temperature',
@@ -29,33 +37,6 @@ class FPSOIndustrialConfig:
         'DRAFT_FWD': 'Forward Draft',
         'DRAFT_AFT': 'Aft Draft'
     }
-    
-    # FIRE FIGHTING SYSTEM
-    FIRE_SYSTEM = {
-        'FIRE_PUMP_VIB': 'Fire Pump - Vibration',
-        'FIRE_PUMP_TEMP': 'Fire Pump - Temperature',
-        'FIRE_MAIN_PRESSURE': 'Fire Main Pressure',
-        'DELUG_SYSTEM_STATUS': 'Deluge System Status',
-        'FOAM_SYSTEM_STATUS': 'Foam System Status',
-        'WATER_MIST_STATUS': 'Water Mist System Status',
-        'FIRE_DETECTOR_CARGO': 'Fire Detector - Cargo Area',
-        'FIRE_DETECTOR_ENGINE': 'Fire Detector - Engine Room',
-        'FIRE_DETECTOR_ACCOMM': 'Fire Detector - Accommodation'
-    }
-    
-    # CARGO TANK HEATING
-    CARGO_HEATING_SYSTEM = {
-        'HEATING_PUMP_VIB': 'Heating Pump - Vibration',
-        'HEATING_PUMP_TEMP': 'Heating Pump - Temperature',
-        'HEATER_TEMP_IN': 'Heater Temperature - Inlet',
-        'HEATER_TEMP_OUT': 'Heater Temperature - Outlet',
-        'CARGO_TEMP_1': 'Cargo Temperature - Tank 1',
-        'CARGO_TEMP_2': 'Cargo Temperature - Tank 2',
-        'CARGO_TEMP_3': 'Cargo Temperature - Tank 3',
-        'HEATING_COIL_TEMP': 'Heating Coil Temperature',
-        'THERMAL_OIL_TEMP': 'Thermal Oil Temperature',
-        'HEATING_FLOW_RATE': 'Heating Flow Rate'
-    }
 
 class BallastSystemMonitor:
     """Ballast System Monitor"""
@@ -64,153 +45,166 @@ class BallastSystemMonitor:
         self.stability_limits = {
             'trim_angle': {'normal': 1.0, 'warning': 2.0, 'critical': 3.0},
             'heel_angle': {'normal': 0.5, 'warning': 1.5, 'critical': 2.5},
-            'draft_difference': {'normal': 0.3, 'warning': 0.8, 'critical': 1.5},
-            'ballast_pump_temp': {'normal': 70, 'warning': 85, 'critical': 100}
         }
-    
-    def check_stability(self, sensor_data):
-        """Check FPSO stability"""
-        stability_risk = 0
-        
-        if abs(sensor_data['trim_angle']) > self.stability_limits['trim_angle']['critical']:
-            stability_risk += 80
-        elif abs(sensor_data['trim_angle']) > self.stability_limits['trim_angle']['warning']:
-            stability_risk += 30
-            
-        if abs(sensor_data['heel_angle']) > self.stability_limits['heel_angle']['critical']:
-            stability_risk += 70
-        elif abs(sensor_data['heel_angle']) > self.stability_limits['heel_angle']['warning']:
-            stability_risk += 25
-            
-        draft_diff = abs(sensor_data['draft_fwd'] - sensor_data['draft_aft'])
-        if draft_diff > self.stability_limits['draft_difference']['critical']:
-            stability_risk += 60
-            
-        return min(100, stability_risk)
 
-class CargoHeatingMonitor:
-    """Cargo Heating System Monitor"""
-    
-    def __init__(self):
-        self.cargo_params = {
-            'viscosity_temp': 45,
-            'max_cargo_temp': 60,
-            'min_cargo_temp': 35
-        }
-    
-    def optimize_heating(self, sensor_data):
-        """Optimize cargo heating"""
-        cargo_temp = np.mean([sensor_data['cargo_temp_1'], sensor_data['cargo_temp_2'], sensor_data['cargo_temp_3']])
+def generate_sensor_data():
+    """Generate realistic sensor data"""
+    return {
+        'trim_angle': 0.5 + np.random.normal(0, 0.2),
+        'heel_angle': 0.3 + np.random.normal(0, 0.1),
+        'ballast_pressure': 3.2 + np.random.normal(0, 0.3),
+        'ballast_pump_temp': 72 + np.random.normal(0, 2),
+        'fire_pressure': 7.5 + np.random.normal(0, 0.5),
+        'fire_pump_temp': 78 + np.random.normal(0, 3),
+        'cargo_temp_1': 42 + np.random.normal(0, 1),
+        'cargo_temp_2': 43 + np.random.normal(0, 1),
+        'cargo_temp_3': 41 + np.random.normal(0, 1),
+        'heating_pump_temp': 85 + np.random.normal(0, 2)
+    }
+
+def simulate_monitoring_cycle():
+    """Simulate one monitoring cycle"""
+    if st.session_state.monitoring_active:
+        # Generate new data
+        st.session_state.system_data = generate_sensor_data()
         
-        if cargo_temp < self.cargo_params['min_cargo_temp']:
-            return "INCREASE_HEATING", f"Cargo temp {cargo_temp:.1f}C below minimum"
-        elif cargo_temp > self.cargo_params['max_cargo_temp']:
-            return "DECREASE_HEATING", f"Cargo temp {cargo_temp:.1f}C above maximum"
-        elif abs(cargo_temp - self.cargo_params['viscosity_temp']) < 2:
-            return "MAINTAIN", f"Optimal cargo temp {cargo_temp:.1f}C"
+        # Calculate risk level based on sensor data
+        risk_score = 0
+        data = st.session_state.system_data
+        
+        if abs(data['trim_angle']) > 2.0:
+            risk_score += 30
+        if abs(data['heel_angle']) > 1.0:
+            risk_score += 25
+        if data['ballast_pressure'] < 2.5:
+            risk_score += 20
+        if data['fire_pressure'] < 6.0:
+            risk_score += 25
+            
+        # Determine risk level
+        if risk_score > 50:
+            st.session_state.risk_level = "HIGH"
+        elif risk_score > 25:
+            st.session_state.risk_level = "MEDIUM"
         else:
-            return "ADJUST", f"Cargo temp {cargo_temp:.1f}C - adjust to {self.cargo_params['viscosity_temp']}C"
+            st.session_state.risk_level = "LOW"
 
 def display_ballast_monitoring():
     """Ballast System Monitoring Interface"""
     st.subheader("⚖️ Ballast System & Stability Monitoring")
     
+    if not st.session_state.system_data:
+        st.info("Monitoring not active. Click 'Start Monitoring' to begin.")
+        return
+    
+    data = st.session_state.system_data
+    
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        trim_angle = 0.8
+        trim_angle = data['trim_angle']
         if abs(trim_angle) > 2.0:
-            st.error(f"🚨 Trim Angle\n{trim_angle}deg")
+            st.error(f"🚨 Trim Angle\n{trim_angle:.1f}°")
         elif abs(trim_angle) > 1.0:
-            st.warning(f"⚠️ Trim Angle\n{trim_angle}deg")
+            st.warning(f"⚠️ Trim Angle\n{trim_angle:.1f}°")
         else:
-            st.success(f"✅ Trim Angle\n{trim_angle}deg")
+            st.success(f"✅ Trim Angle\n{trim_angle:.1f}°")
             
     with col2:
-        heel_angle = 0.3
+        heel_angle = data['heel_angle']
         if abs(heel_angle) > 1.5:
-            st.error(f"🚨 Heel Angle\n{heel_angle}deg")
+            st.error(f"🚨 Heel Angle\n{heel_angle:.1f}°")
         elif abs(heel_angle) > 0.5:
-            st.warning(f"⚠️ Heel Angle\n{heel_angle}deg")
+            st.warning(f"⚠️ Heel Angle\n{heel_angle:.1f}°")
         else:
-            st.success(f"✅ Heel Angle\n{heel_angle}deg")
+            st.success(f"✅ Heel Angle\n{heel_angle:.1f}°")
             
     with col3:
-        ballast_pressure = 3.2
+        ballast_pressure = data['ballast_pressure']
         if ballast_pressure < 2.0:
-            st.error(f"🚨 Ballast Pressure\n{ballast_pressure} bar")
+            st.error(f"🚨 Pressure\n{ballast_pressure:.1f} bar")
         elif ballast_pressure < 2.5:
-            st.warning(f"⚠️ Ballast Pressure\n{ballast_pressure} bar")
+            st.warning(f"⚠️ Pressure\n{ballast_pressure:.1f} bar")
         else:
-            st.success(f"✅ Ballast Pressure\n{ballast_pressure} bar")
+            st.success(f"✅ Pressure\n{ballast_pressure:.1f} bar")
             
     with col4:
-        ballast_pump_temp = 72
+        ballast_pump_temp = data['ballast_pump_temp']
         if ballast_pump_temp > 100:
-            st.error(f"🚨 Pump Temp\n{ballast_pump_temp}C")
+            st.error(f"🚨 Pump Temp\n{ballast_pump_temp:.1f}°C")
         elif ballast_pump_temp > 85:
-            st.warning(f"⚠️ Pump Temp\n{ballast_pump_temp}C")
+            st.warning(f"⚠️ Pump Temp\n{ballast_pump_temp:.1f}°C")
         else:
-            st.success(f"✅ Pump Temp\n{ballast_pump_temp}C")
+            st.success(f"✅ Pump Temp\n{ballast_pump_temp:.1f}°C")
 
 def display_fire_system_monitoring():
     """Fire System Monitoring Interface"""
     st.subheader("🔥 Fire Fighting System Monitoring")
     
+    if not st.session_state.system_data:
+        return
+    
+    data = st.session_state.system_data
+    
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        fire_pressure = 7.8
+        fire_pressure = data['fire_pressure']
         if fire_pressure < 4.0:
-            st.error(f"🚨 Fire Main\n{fire_pressure} bar")
+            st.error(f"🚨 Fire Main\n{fire_pressure:.1f} bar")
         elif fire_pressure < 6.0:
-            st.warning(f"⚠️ Fire Main\n{fire_pressure} bar")
+            st.warning(f"⚠️ Fire Main\n{fire_pressure:.1f} bar")
         else:
-            st.success(f"✅ Fire Main\n{fire_pressure} bar")
+            st.success(f"✅ Fire Main\n{fire_pressure:.1f} bar")
             
     with col2:
-        fire_pump_temp = 78
+        fire_pump_temp = data['fire_pump_temp']
         if fire_pump_temp > 105:
-            st.error(f"🚨 Fire Pump\n{fire_pump_temp}C")
+            st.error(f"🚨 Fire Pump\n{fire_pump_temp:.1f}°C")
         elif fire_pump_temp > 90:
-            st.warning(f"⚠️ Fire Pump\n{fire_pump_temp}C")
+            st.warning(f"⚠️ Fire Pump\n{fire_pump_temp:.1f}°C")
         else:
-            st.success(f"✅ Fire Pump\n{fire_pump_temp}C")
+            st.success(f"✅ Fire Pump\n{fire_pump_temp:.1f}°C")
             
     with col3:
-        deluge_status = "READY"
-        st.success(f"✅ Deluge System\n{deluge_status}")
+        status = "READY" if fire_pressure > 6.0 else "CHECK"
+        st.success(f"✅ Deluge System\n{status}")
             
     with col4:
-        foam_system = "STANDBY"
-        st.warning(f"⚠️ Foam System\n{foam_system}")
+        status = "READY" if fire_pump_temp < 90 else "STANDBY"
+        st.warning(f"⚠️ Foam System\n{status}")
 
 def display_cargo_heating_monitoring():
     """Cargo Heating Monitoring Interface"""
     st.subheader("🌡️ Cargo Tank Heating System")
     
+    if not st.session_state.system_data:
+        return
+    
+    data = st.session_state.system_data
+    
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        cargo_temp_1 = 42.5
-        st.metric("Tank 1 Temperature", f"{cargo_temp_1}C", "0.5")
+        cargo_temp_1 = data['cargo_temp_1']
+        st.metric("Tank 1 Temperature", f"{cargo_temp_1:.1f}°C", f"{np.random.choice(['+', '-'])}{np.random.uniform(0.1, 0.5):.1f}")
         
     with col2:
-        cargo_temp_2 = 43.2
-        st.metric("Tank 2 Temperature", f"{cargo_temp_2}C", "0.3")
+        cargo_temp_2 = data['cargo_temp_2']
+        st.metric("Tank 2 Temperature", f"{cargo_temp_2:.1f}°C", f"{np.random.choice(['+', '-'])}{np.random.uniform(0.1, 0.5):.1f}")
         
     with col3:
-        cargo_temp_3 = 41.8  
-        st.metric("Tank 3 Temperature", f"{cargo_temp_3}C", "-0.2")
+        cargo_temp_3 = data['cargo_temp_3']
+        st.metric("Tank 3 Temperature", f"{cargo_temp_3:.1f}°C", f"{np.random.choice(['+', '-'])}{np.random.uniform(0.1, 0.5):.1f}")
         
     with col4:
-        heating_pump_temp = 85
+        heating_pump_temp = data['heating_pump_temp']
         if heating_pump_temp > 100:
-            st.error(f"🚨 Heating Pump\n{heating_pump_temp}C")
+            st.error(f"🚨 Heating Pump\n{heating_pump_temp:.1f}°C")
         elif heating_pump_temp > 90:
-            st.warning(f"⚠️ Heating Pump\n{heating_pump_temp}C")
+            st.warning(f"⚠️ Heating Pump\n{heating_pump_temp:.1f}°C")
         else:
-            st.success(f"✅ Heating Pump\n{heating_pump_temp}C")
+            st.success(f"✅ Heating Pump\n{heating_pump_temp:.1f}°C")
 
 # Main Application
 def main():
@@ -218,24 +212,39 @@ def main():
     st.title("🌊 FPSO Spirit - Digital Soul of Floating Production")
     st.markdown("### *Where Engineering Meets Consciousness*")
 
+    # Simulate monitoring cycle
+    simulate_monitoring_cycle()
+
     # System Status
-    st.success("🚀 FPSO Spirit System Initialized Successfully!")
-    st.info("The digital soul of your FPSO is awakening...")
+    if st.session_state.monitoring_active:
+        st.success("🚀 FPSO Spirit - ACTIVE MONITORING")
+        # Auto-refresh
+        time.sleep(2)
+        st.rerun()
+    else:
+        st.info("🟡 FPSO Spirit - READY FOR ACTIVATION")
 
     # Dashboard Columns
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("Spirit Health", "98%", "2%")
+        status = "ACTIVE" if st.session_state.monitoring_active else "STANDBY"
+        color = "🟢" if st.session_state.monitoring_active else "🟡"
+        st.metric("System Status", f"{color} {status}")
         
     with col2:
-        st.metric("Consciousness Level", "AWAKENING")
+        risk_color = "🔴" if st.session_state.risk_level == "HIGH" else "🟡" if st.session_state.risk_level == "MEDIUM" else "🟢"
+        st.metric("Risk Level", f"{risk_color} {st.session_state.risk_level}")
 
     with col3:
-        st.metric("Systems Integrated", "6/8")
+        systems = "6/8" if st.session_state.monitoring_active else "0/8"
+        st.metric("Systems Active", systems)
 
     with col4:
-        st.metric("Operational Time", "0 days")
+        if st.session_state.monitoring_active:
+            st.metric("Data Cycles", f"#{np.random.randint(1, 100)}")
+        else:
+            st.metric("Data Cycles", "0")
 
     # System Overview
     st.subheader("🎯 System Consciousness States")
@@ -264,14 +273,22 @@ def main():
     # Sidebar
     with st.sidebar:
         st.header("🎛️ Control Panel")
-        st.button("⚡ Start Monitoring", type="primary")
-        st.button("🛑 Emergency Stop")
+        
+        if not st.session_state.monitoring_active:
+            if st.button("⚡ Start Monitoring", type="primary", use_container_width=True):
+                st.session_state.monitoring_active = True
+                st.session_state.system_data = generate_sensor_data()
+                st.rerun()
+        else:
+            if st.button("🛑 Stop Monitoring", type="secondary", use_container_width=True):
+                st.session_state.monitoring_active = False
+                st.rerun()
         
         st.markdown("---")
         st.subheader("System Info")
-        st.write("**Status:** Initializing")
-        st.write("**Version:** 1.0.0")
-        st.write("**Last Update:** Just now")
+        st.write(f"**Status:** {'ACTIVE' if st.session_state.monitoring_active else 'STANDBY'}")
+        st.write(f"**Risk Level:** {st.session_state.risk_level}")
+        st.write(f"**Last Update:** {datetime.now().strftime('%H:%M:%S')}")
 
 if __name__ == "__main__":
     main()
