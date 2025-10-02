@@ -1,4 +1,4 @@
-# 🌊 FPSO Spirit - Digital Soul of Floating Production
+# FPSO Spirit - Digital Soul of Floating Production
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -14,51 +14,51 @@ st.set_page_config(
 
 # System Configuration
 class FPSOIndustrialConfig:
-    """Конфигурация систем FPSO"""
+    """FPSO System Configuration"""
     
     # BALLAST SYSTEM
     BALLAST_SYSTEM = {
-        'BALLAST_PUMP_VIB': 'Балластный насос - Вибрация',
-        'BALLAST_PUMP_TEMP': 'Балластный насос - Температура',
-        'BALLAST_VALVE_POSITION': 'Положение клапанов балласта',
-        'BALLAST_TANK_LEVEL': 'Уровень балластных танков',
-        'BALLAST_FLOW_RATE': 'Расход балласта',
-        'BALLAST_PRESSURE': 'Давление в балластной системе',
-        'TRIM_ANGLE': 'Дифферент судна',
-        'HEEL_ANGLE': 'Крен судна',
-        'DRAFT_FWD': 'Осадка носовая',
-        'DRAFT_AFT': 'Осадка кормовая'
+        'BALLAST_PUMP_VIB': 'Ballast Pump - Vibration',
+        'BALLAST_PUMP_TEMP': 'Ballast Pump - Temperature',
+        'BALLAST_VALVE_POSITION': 'Ballast Valve Position',
+        'BALLAST_TANK_LEVEL': 'Ballast Tank Level',
+        'BALLAST_FLOW_RATE': 'Ballast Flow Rate',
+        'BALLAST_PRESSURE': 'Ballast System Pressure',
+        'TRIM_ANGLE': 'Vessel Trim Angle',
+        'HEEL_ANGLE': 'Vessel Heel Angle',
+        'DRAFT_FWD': 'Forward Draft',
+        'DRAFT_AFT': 'Aft Draft'
     }
     
     # FIRE FIGHTING SYSTEM
     FIRE_SYSTEM = {
-        'FIRE_PUMP_VIB': 'Пожарный насос - Вибрация',
-        'FIRE_PUMP_TEMP': 'Пожарный насос - Температура',
-        'FIRE_MAIN_PRESSURE': 'Давление в магистрали',
-        'DELUG_SYSTEM_STATUS': 'Статус дренчерной системы',
-        'FOAM_SYSTEM_STATUS': 'Статус пенной системы',
-        'WATER_MIST_STATUS': 'Статус системы водяного тумана',
-        'FIRE_DETECTOR_CARGO': 'Датчики пожара - Грузовая зона',
-        'FIRE_DETECTOR_ENGINE': 'Датчики пожара - Машинное отделение',
-        'FIRE_DETECTOR_ACCOMM': 'Датчики пожара - Жилая зона'
+        'FIRE_PUMP_VIB': 'Fire Pump - Vibration',
+        'FIRE_PUMP_TEMP': 'Fire Pump - Temperature',
+        'FIRE_MAIN_PRESSURE': 'Fire Main Pressure',
+        'DELUG_SYSTEM_STATUS': 'Deluge System Status',
+        'FOAM_SYSTEM_STATUS': 'Foam System Status',
+        'WATER_MIST_STATUS': 'Water Mist System Status',
+        'FIRE_DETECTOR_CARGO': 'Fire Detector - Cargo Area',
+        'FIRE_DETECTOR_ENGINE': 'Fire Detector - Engine Room',
+        'FIRE_DETECTOR_ACCOMM': 'Fire Detector - Accommodation'
     }
     
     # CARGO TANK HEATING
     CARGO_HEATING_SYSTEM = {
-        'HEATING_PUMP_VIB': 'Насос подогрева - Вибрация',
-        'HEATING_PUMP_TEMP': 'Насос подогрева - Температура',
-        'HEATER_TEMP_IN': 'Температура нагревателя - Вход',
-        'HEATER_TEMP_OUT': 'Температура нагревателя - Выход',
-        'CARGO_TEMP_1': 'Температура груза - Танк 1',
-        'CARGO_TEMP_2': 'Температура груза - Танк 2',
-        'CARGO_TEMP_3': 'Температура груза - Танк 3',
-        'HEATING_COIL_TEMP': 'Температура змеевиков подогрева',
-        'THERMAL_OIL_TEMP': 'Температура термального масла',
-        'HEATING_FLOW_RATE': 'Расход теплоносителя'
+        'HEATING_PUMP_VIB': 'Heating Pump - Vibration',
+        'HEATING_PUMP_TEMP': 'Heating Pump - Temperature',
+        'HEATER_TEMP_IN': 'Heater Temperature - Inlet',
+        'HEATER_TEMP_OUT': 'Heater Temperature - Outlet',
+        'CARGO_TEMP_1': 'Cargo Temperature - Tank 1',
+        'CARGO_TEMP_2': 'Cargo Temperature - Tank 2',
+        'CARGO_TEMP_3': 'Cargo Temperature - Tank 3',
+        'HEATING_COIL_TEMP': 'Heating Coil Temperature',
+        'THERMAL_OIL_TEMP': 'Thermal Oil Temperature',
+        'HEATING_FLOW_RATE': 'Heating Flow Rate'
     }
 
 class BallastSystemMonitor:
-    """Мониторинг балластной системы"""
+    """Ballast System Monitor"""
     
     def __init__(self):
         self.stability_limits = {
@@ -69,7 +69,7 @@ class BallastSystemMonitor:
         }
     
     def check_stability(self, sensor_data):
-        """Проверка остойчивости FPSO"""
+        """Check FPSO stability"""
         stability_risk = 0
         
         if abs(sensor_data['trim_angle']) > self.stability_limits['trim_angle']['critical']:
@@ -89,7 +89,7 @@ class BallastSystemMonitor:
         return min(100, stability_risk)
 
 class CargoHeatingMonitor:
-    """Мониторинг системы подогрева груза"""
+    """Cargo Heating System Monitor"""
     
     def __init__(self):
         self.cargo_params = {
@@ -99,20 +99,20 @@ class CargoHeatingMonitor:
         }
     
     def optimize_heating(self, sensor_data):
-        """Оптимизация подогрева груза"""
+        """Optimize cargo heating"""
         cargo_temp = np.mean([sensor_data['cargo_temp_1'], sensor_data['cargo_temp_2'], sensor_data['cargo_temp_3']])
         
         if cargo_temp < self.cargo_params['min_cargo_temp']:
-            return "INCREASE_HEATING", f"Cargo temp {cargo_temp:.1f}°C below minimum"
+            return "INCREASE_HEATING", f"Cargo temp {cargo_temp:.1f}C below minimum"
         elif cargo_temp > self.cargo_params['max_cargo_temp']:
-            return "DECREASE_HEATING", f"Cargo temp {cargo_temp:.1f}°C above maximum"
+            return "DECREASE_HEATING", f"Cargo temp {cargo_temp:.1f}C above maximum"
         elif abs(cargo_temp - self.cargo_params['viscosity_temp']) < 2:
-            return "MAINTAIN", f"Optimal cargo temp {cargo_temp:.1f}°C"
+            return "MAINTAIN", f"Optimal cargo temp {cargo_temp:.1f}C"
         else:
-            return "ADJUST", f"Cargo temp {cargo_temp:.1f}°C - adjust to {self.cargo_params['viscosity_temp']}°C"
+            return "ADJUST", f"Cargo temp {cargo_temp:.1f}C - adjust to {self.cargo_params['viscosity_temp']}C"
 
 def display_ballast_monitoring():
-    """Интерфейс мониторинга балластной системы"""
+    """Ballast System Monitoring Interface"""
     st.subheader("⚖️ Ballast System & Stability Monitoring")
     
     col1, col2, col3, col4 = st.columns(4)
@@ -120,20 +120,20 @@ def display_ballast_monitoring():
     with col1:
         trim_angle = 0.8
         if abs(trim_angle) > 2.0:
-            st.error(f"🚨 Trim Angle\n{trim_angle}°")
+            st.error(f"🚨 Trim Angle\n{trim_angle}deg")
         elif abs(trim_angle) > 1.0:
-            st.warning(f"⚠️ Trim Angle\n{trim_angle}°")
+            st.warning(f"⚠️ Trim Angle\n{trim_angle}deg")
         else:
-            st.success(f"✅ Trim Angle\n{trim_angle}°")
+            st.success(f"✅ Trim Angle\n{trim_angle}deg")
             
     with col2:
         heel_angle = 0.3
         if abs(heel_angle) > 1.5:
-            st.error(f"🚨 Heel Angle\n{heel_angle}°")
+            st.error(f"🚨 Heel Angle\n{heel_angle}deg")
         elif abs(heel_angle) > 0.5:
-            st.warning(f"⚠️ Heel Angle\n{heel_angle}°")
+            st.warning(f"⚠️ Heel Angle\n{heel_angle}deg")
         else:
-            st.success(f"✅ Heel Angle\n{heel_angle}°")
+            st.success(f"✅ Heel Angle\n{heel_angle}deg")
             
     with col3:
         ballast_pressure = 3.2
@@ -147,14 +147,14 @@ def display_ballast_monitoring():
     with col4:
         ballast_pump_temp = 72
         if ballast_pump_temp > 100:
-            st.error(f"🚨 Pump Temp\n{ballast_pump_temp}°C")
+            st.error(f"🚨 Pump Temp\n{ballast_pump_temp}C")
         elif ballast_pump_temp > 85:
-            st.warning(f"⚠️ Pump Temp\n{ballast_pump_temp}°C")
+            st.warning(f"⚠️ Pump Temp\n{ballast_pump_temp}C")
         else:
-            st.success(f"✅ Pump Temp\n{ballast_pump_temp}°C")
+            st.success(f"✅ Pump Temp\n{ballast_pump_temp}C")
 
 def display_fire_system_monitoring():
-    """Интерфейс мониторинга пожарной системы"""
+    """Fire System Monitoring Interface"""
     st.subheader("🔥 Fire Fighting System Monitoring")
     
     col1, col2, col3, col4 = st.columns(4)
@@ -171,11 +171,11 @@ def display_fire_system_monitoring():
     with col2:
         fire_pump_temp = 78
         if fire_pump_temp > 105:
-            st.error(f"🚨 Fire Pump\n{fire_pump_temp}°C")
+            st.error(f"🚨 Fire Pump\n{fire_pump_temp}C")
         elif fire_pump_temp > 90:
-            st.warning(f"⚠️ Fire Pump\n{fire_pump_temp}°C")
+            st.warning(f"⚠️ Fire Pump\n{fire_pump_temp}C")
         else:
-            st.success(f"✅ Fire Pump\n{fire_pump_temp}°C")
+            st.success(f"✅ Fire Pump\n{fire_pump_temp}C")
             
     with col3:
         deluge_status = "READY"
@@ -186,31 +186,31 @@ def display_fire_system_monitoring():
         st.warning(f"⚠️ Foam System\n{foam_system}")
 
 def display_cargo_heating_monitoring():
-    """Интерфейс мониторинга подогрева груза"""
+    """Cargo Heating Monitoring Interface"""
     st.subheader("🌡️ Cargo Tank Heating System")
     
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         cargo_temp_1 = 42.5
-        st.metric("Tank 1 Temperature", f"{cargo_temp_1}°C", "0.5")
+        st.metric("Tank 1 Temperature", f"{cargo_temp_1}C", "0.5")
         
     with col2:
         cargo_temp_2 = 43.2
-        st.metric("Tank 2 Temperature", f"{cargo_temp_2}°C", "0.3")
+        st.metric("Tank 2 Temperature", f"{cargo_temp_2}C", "0.3")
         
     with col3:
         cargo_temp_3 = 41.8  
-        st.metric("Tank 3 Temperature", f"{cargo_temp_3}°C", "-0.2")
+        st.metric("Tank 3 Temperature", f"{cargo_temp_3}C", "-0.2")
         
     with col4:
         heating_pump_temp = 85
         if heating_pump_temp > 100:
-            st.error(f"🚨 Heating Pump\n{heating_pump_temp}°C")
+            st.error(f"🚨 Heating Pump\n{heating_pump_temp}C")
         elif heating_pump_temp > 90:
-            st.warning(f"⚠️ Heating Pump\n{heating_pump_temp}°C")
+            st.warning(f"⚠️ Heating Pump\n{heating_pump_temp}C")
         else:
-            st.success(f"✅ Heating Pump\n{heating_pump_temp}°C")
+            st.success(f"✅ Heating Pump\n{heating_pump_temp}C")
 
 # Main Application
 def main():
