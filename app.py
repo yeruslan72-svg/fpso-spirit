@@ -20,6 +20,8 @@ if 'system_data' not in st.session_state:
     st.session_state.system_data = {}
 if 'risk_level' not in st.session_state:
     st.session_state.risk_level = "LOW"
+if 'cycle_count' not in st.session_state:
+    st.session_state.cycle_count = 0
 
 # System Configuration
 class FPSOIndustrialConfig:
@@ -29,72 +31,88 @@ class FPSOIndustrialConfig:
         'BALLAST_PUMP_VIB': 'Ballast Pump - Vibration',
         'BALLAST_PUMP_TEMP': 'Ballast Pump - Temperature',
         'BALLAST_VALVE_POSITION': 'Ballast Valve Position',
-        'BALLAST_TANK_LEVEL': 'Ballast Tank Level',
-        'BALLAST_FLOW_RATE': 'Ballast Flow Rate',
-        'BALLAST_PRESSURE': 'Ballast System Pressure',
-        'TRIM_ANGLE': 'Vessel Trim Angle',
-        'HEEL_ANGLE': 'Vessel Heel Angle',
-        'DRAFT_FWD': 'Forward Draft',
-        'DRAFT_AFT': 'Aft Draft'
     }
-
-class BallastSystemMonitor:
-    """Ballast System Monitor"""
-    
-    def __init__(self):
-        self.stability_limits = {
-            'trim_angle': {'normal': 1.0, 'warning': 2.0, 'critical': 3.0},
-            'heel_angle': {'normal': 0.5, 'warning': 1.5, 'critical': 2.5},
-        }
 
 def generate_sensor_data():
     """Generate realistic sensor data"""
     return {
-        'trim_angle': 0.5 + np.random.normal(0, 0.2),
-        'heel_angle': 0.3 + np.random.normal(0, 0.1),
-        'ballast_pressure': 3.2 + np.random.normal(0, 0.3),
-        'ballast_pump_temp': 72 + np.random.normal(0, 2),
-        'fire_pressure': 7.5 + np.random.normal(0, 0.5),
-        'fire_pump_temp': 78 + np.random.normal(0, 3),
-        'cargo_temp_1': 42 + np.random.normal(0, 1),
-        'cargo_temp_2': 43 + np.random.normal(0, 1),
-        'cargo_temp_3': 41 + np.random.normal(0, 1),
-        'heating_pump_temp': 85 + np.random.normal(0, 2)
+        'trim_angle': max(0.1, 0.5 + np.random.normal(0, 0.3)),
+        'heel_angle': max(0.1, 0.3 + np.random.normal(0, 0.2)),
+        'ballast_pressure': max(0.5, 3.2 + np.random.normal(0, 0.5)),
+        'ballast_pump_temp': max(20, 72 + np.random.normal(0, 4)),
+        'fire_pressure': max(1.0, 7.5 + np.random.normal(0, 0.8)),
+        'fire_pump_temp': max(20, 78 + np.random.normal(0, 5)),
+        'cargo_temp_1': max(10, 42 + np.random.normal(0, 3)),
+        'cargo_temp_2': max(10, 43 + np.random.normal(0, 3)),
+        'cargo_temp_3': max(10, 41 + np.random.normal(0, 3)),
+        'heating_pump_temp': max(20, 85 + np.random.normal(0, 6))
     }
 
-def simulate_monitoring_cycle():
-    """Simulate one monitoring cycle"""
-    if st.session_state.monitoring_active:
-        # Generate new data
-        st.session_state.system_data = generate_sensor_data()
+def calculate_risk_level(data):
+    """Calculate risk level based on sensor data"""
+    if not data:
+        return "LOW"
+    
+    risk_score = 0
+    
+    # Ballast system checks
+    if abs(data['trim_angle']) > 2.0:
+        risk_score += 30
+    elif abs(data['trim_angle']) > 1.0:
+        risk_score += 15
         
-        # Calculate risk level based on sensor data
-        risk_score = 0
-        data = st.session_state.system_data
+    if abs(data['heel_angle']) > 1.5:
+        risk_score += 25
+    elif abs(data['heel_angle']) > 0.5:
+        risk_score += 12
         
-        if abs(data['trim_angle']) > 2.0:
-            risk_score += 30
-        if abs(data['heel_angle']) > 1.0:
-            risk_score += 25
-        if data['ballast_pressure'] < 2.5:
-            risk_score += 20
-        if data['fire_pressure'] < 6.0:
-            risk_score += 25
-            
-        # Determine risk level
-        if risk_score > 50:
-            st.session_state.risk_level = "HIGH"
-        elif risk_score > 25:
-            st.session_state.risk_level = "MEDIUM"
-        else:
-            st.session_state.risk_level = "LOW"
+    if data['ballast_pressure'] < 2.0:
+        risk_score += 40
+    elif data['ballast_pressure'] < 2.5:
+        risk_score += 20
+        
+    if data['ballast_pump_temp'] > 100:
+        risk_score += 35
+    elif data['ballast_pump_temp'] > 85:
+        risk_score += 18
+        
+    # Fire system checks
+    if data['fire_pressure'] < 4.0:
+        risk_score += 45
+    elif data['fire_pressure'] < 6.0:
+        risk_score += 22
+        
+    if data['fire_pump_temp'] > 105:
+        risk_score += 30
+    elif data['fire_pump_temp'] > 90:
+        risk_score += 15
+        
+    # Cargo system checks
+    avg_cargo_temp = np.mean([data['cargo_temp_1'], data['cargo_temp_2'], data['cargo_temp_3']])
+    if avg_cargo_temp > 55 or avg_cargo_temp < 30:
+        risk_score += 20
+        
+    if data['heating_pump_temp'] > 100:
+        risk_score += 25
+    elif data['heating_pump_temp'] > 90:
+        risk_score += 12
+    
+    # Determine risk level
+    if risk_score >= 80:
+        return "CRITICAL"
+    elif risk_score >= 50:
+        return "HIGH"
+    elif risk_score >= 25:
+        return "MEDIUM"
+    else:
+        return "LOW"
 
 def display_ballast_monitoring():
     """Ballast System Monitoring Interface"""
     st.subheader("⚖️ Ballast System & Stability Monitoring")
     
     if not st.session_state.system_data:
-        st.info("Monitoring not active. Click 'Start Monitoring' to begin.")
+        st.info("📊 Monitoring not active. Click 'Start Monitoring' to begin.")
         return
     
     data = st.session_state.system_data
@@ -167,12 +185,14 @@ def display_fire_system_monitoring():
             st.success(f"✅ Fire Pump\n{fire_pump_temp:.1f}°C")
             
     with col3:
-        status = "READY" if fire_pressure > 6.0 else "CHECK"
-        st.success(f"✅ Deluge System\n{status}")
+        status = "READY" if fire_pressure > 6.0 and fire_pump_temp < 90 else "CHECK"
+        color = "✅" if status == "READY" else "⚠️"
+        st.metric("Deluge System", f"{color} {status}")
             
     with col4:
-        status = "READY" if fire_pump_temp < 90 else "STANDBY"
-        st.warning(f"⚠️ Foam System\n{status}")
+        status = "ACTIVE" if fire_pressure > 5.0 else "STANDBY"
+        color = "✅" if status == "ACTIVE" else "🟡"
+        st.metric("Foam System", f"{color} {status}")
 
 def display_cargo_heating_monitoring():
     """Cargo Heating Monitoring Interface"""
@@ -187,15 +207,18 @@ def display_cargo_heating_monitoring():
     
     with col1:
         cargo_temp_1 = data['cargo_temp_1']
-        st.metric("Tank 1 Temperature", f"{cargo_temp_1:.1f}°C", f"{np.random.choice(['+', '-'])}{np.random.uniform(0.1, 0.5):.1f}")
+        trend = np.random.choice(['+', '-']) + f"{np.random.uniform(0.1, 0.8):.1f}"
+        st.metric("Tank 1", f"{cargo_temp_1:.1f}°C", trend)
         
     with col2:
         cargo_temp_2 = data['cargo_temp_2']
-        st.metric("Tank 2 Temperature", f"{cargo_temp_2:.1f}°C", f"{np.random.choice(['+', '-'])}{np.random.uniform(0.1, 0.5):.1f}")
+        trend = np.random.choice(['+', '-']) + f"{np.random.uniform(0.1, 0.8):.1f}"
+        st.metric("Tank 2", f"{cargo_temp_2:.1f}°C", trend)
         
     with col3:
         cargo_temp_3 = data['cargo_temp_3']
-        st.metric("Tank 3 Temperature", f"{cargo_temp_3:.1f}°C", f"{np.random.choice(['+', '-'])}{np.random.uniform(0.1, 0.5):.1f}")
+        trend = np.random.choice(['+', '-']) + f"{np.random.uniform(0.1, 0.8):.1f}"
+        st.metric("Tank 3", f"{cargo_temp_3:.1f}°C", trend)
         
     with col4:
         heating_pump_temp = data['heating_pump_temp']
@@ -212,17 +235,19 @@ def main():
     st.title("🌊 FPSO Spirit - Digital Soul of Floating Production")
     st.markdown("### *Where Engineering Meets Consciousness*")
 
-    # Simulate monitoring cycle
-    simulate_monitoring_cycle()
+    # Update data if monitoring is active
+    if st.session_state.monitoring_active:
+        st.session_state.system_data = generate_sensor_data()
+        st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
+        st.session_state.cycle_count += 1
 
     # System Status
     if st.session_state.monitoring_active:
-        st.success("🚀 FPSO Spirit - ACTIVE MONITORING")
-        # Auto-refresh
-        time.sleep(2)
-        st.rerun()
+        st.success(f"🚀 ACTIVE MONITORING - Cycle #{st.session_state.cycle_count}")
+        # Show auto-refresh info
+        st.info("🔄 System is actively monitoring. Click 'Stop Monitoring' to pause.")
     else:
-        st.info("🟡 FPSO Spirit - READY FOR ACTIVATION")
+        st.info("🟡 SYSTEM READY - Click 'Start Monitoring' to begin")
 
     # Dashboard Columns
     col1, col2, col3, col4 = st.columns(4)
@@ -233,42 +258,62 @@ def main():
         st.metric("System Status", f"{color} {status}")
         
     with col2:
-        risk_color = "🔴" if st.session_state.risk_level == "HIGH" else "🟡" if st.session_state.risk_level == "MEDIUM" else "🟢"
+        risk_color = {
+            "CRITICAL": "🔴",
+            "HIGH": "🟠", 
+            "MEDIUM": "🟡",
+            "LOW": "🟢"
+        }.get(st.session_state.risk_level, "🟢")
         st.metric("Risk Level", f"{risk_color} {st.session_state.risk_level}")
 
     with col3:
         systems = "6/8" if st.session_state.monitoring_active else "0/8"
-        st.metric("Systems Active", systems)
+        st.metric("Active Systems", systems)
 
     with col4:
-        if st.session_state.monitoring_active:
-            st.metric("Data Cycles", f"#{np.random.randint(1, 100)}")
-        else:
-            st.metric("Data Cycles", "0")
+        st.metric("Data Cycles", st.session_state.cycle_count)
 
     # System Overview
     st.subheader("🎯 System Consciousness States")
 
-    systems = {
-        "Ballast System": {"state": "MINDFUL", "awareness": 96},
-        "IGS System": {"state": "VIGILANT", "awareness": 98}, 
-        "Fire System": {"state": "ALERT", "awareness": 95},
-        "Power System": {"state": "BALANCED", "awareness": 92},
-        "Production": {"state": "FLOWING", "awareness": 94},
-        "Cargo Heating": {"state": "TEMPERATE", "awareness": 91}
+    base_awareness = {
+        "Ballast System": 96,
+        "IGS System": 98, 
+        "Fire System": 95,
+        "Power System": 92,
+        "Production": 94,
+        "Cargo Heating": 91
     }
 
-    for system, data in systems.items():
-        st.progress(data["awareness"]/100, f"{system}: {data['state']} ({data['awareness']}%)")
+    # Adjust awareness based on risk level
+    risk_modifier = {
+        "CRITICAL": -20,
+        "HIGH": -10,
+        "MEDIUM": -5,
+        "LOW": 0
+    }.get(st.session_state.risk_level, 0)
+
+    for system, awareness in base_awareness.items():
+        adjusted_awareness = max(50, awareness + risk_modifier)
+        state = "ALERT" if risk_modifier < -5 else "NORMAL"
+        st.progress(adjusted_awareness/100, f"{system}: {state} ({adjusted_awareness}%)")
 
     # Systems Monitoring
     display_ballast_monitoring()
     display_fire_system_monitoring()
     display_cargo_heating_monitoring()
 
+    # Manual refresh button for active monitoring
+    if st.session_state.monitoring_active:
+        if st.button("🔄 Refresh Data Now", type="secondary"):
+            st.session_state.system_data = generate_sensor_data()
+            st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
+            st.session_state.cycle_count += 1
+            st.rerun()
+
     # Footer
     st.markdown("---")
-    st.caption(f"FPSO Spirit v1.0 | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Breathing consciousness into steel")
+    st.caption(f"FPSO Spirit v1.1 | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Breathing consciousness into steel")
 
     # Sidebar
     with st.sidebar:
@@ -278,6 +323,8 @@ def main():
             if st.button("⚡ Start Monitoring", type="primary", use_container_width=True):
                 st.session_state.monitoring_active = True
                 st.session_state.system_data = generate_sensor_data()
+                st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
+                st.session_state.cycle_count = 1
                 st.rerun()
         else:
             if st.button("🛑 Stop Monitoring", type="secondary", use_container_width=True):
@@ -288,7 +335,17 @@ def main():
         st.subheader("System Info")
         st.write(f"**Status:** {'ACTIVE' if st.session_state.monitoring_active else 'STANDBY'}")
         st.write(f"**Risk Level:** {st.session_state.risk_level}")
+        st.write(f"**Cycles Completed:** {st.session_state.cycle_count}")
         st.write(f"**Last Update:** {datetime.now().strftime('%H:%M:%S')}")
+        
+        st.markdown("---")
+        st.subheader("Quick Actions")
+        if st.button("🔄 Simulate Data Update", use_container_width=True):
+            st.session_state.system_data = generate_sensor_data()
+            st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
+            if st.session_state.monitoring_active:
+                st.session_state.cycle_count += 1
+            st.rerun()
 
 if __name__ == "__main__":
     main()
