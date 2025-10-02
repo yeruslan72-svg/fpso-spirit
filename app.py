@@ -1,9 +1,12 @@
-# FPSO Spirit - Digital Soul of Floating Production
+# FPSO Spirit - COMPLETE SYSTEM with Hull Visualization
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
+import plotly.graph_objects as go
+import plotly.express as px
+from sklearn.ensemble import IsolationForest
 
 # Page Configuration
 st.set_page_config(
@@ -13,422 +16,489 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize session state
-if 'monitoring_active' not in st.session_state:
-    st.session_state.monitoring_active = False
-if 'emergency_stop' not in st.session_state:
-    st.session_state.emergency_stop = False
-if 'system_data' not in st.session_state:
-    st.session_state.system_data = {}
-if 'risk_level' not in st.session_state:
-    st.session_state.risk_level = "LOW"
-if 'cycle_count' not in st.session_state:
-    st.session_state.cycle_count = 0
-if 'last_update' not in st.session_state:
-    st.session_state.last_update = datetime.now()
+# Initialize ALL session states
+session_states = {
+    'monitoring_active': False,
+    'emergency_stop': False,
+    'system_data': {},
+    'risk_level': "LOW",
+    'cycle_count': 0,
+    'last_update': datetime.now(),
+    'historical_data': [],
+    'prevented_incidents': 0,
+    'cost_savings': 0,
+    'simulation_start': datetime.now()
+}
 
-def generate_sensor_data():
-    """Generate realistic sensor data"""
-    return {
-        'trim_angle': max(0.1, 0.5 + np.random.normal(0, 0.3)),
-        'heel_angle': max(0.1, 0.3 + np.random.normal(0, 0.2)),
-        'ballast_pressure': max(0.5, 3.2 + np.random.normal(0, 0.5)),
-        'ballast_pump_temp': max(20, 72 + np.random.normal(0, 4)),
-        'fire_pressure': max(1.0, 7.5 + np.random.normal(0, 0.8)),
-        'fire_pump_temp': max(20, 78 + np.random.normal(0, 5)),
-        'cargo_temp_1': max(10, 42 + np.random.normal(0, 3)),
-        'cargo_temp_2': max(10, 43 + np.random.normal(0, 3)),
-        'cargo_temp_3': max(10, 41 + np.random.normal(0, 3)),
-        'heating_pump_temp': max(20, 85 + np.random.normal(0, 6))
+for key, default_value in session_states.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
+
+# Initialize AI model
+if 'ai_model' not in st.session_state:
+    np.random.seed(42)
+    normal_data = np.random.normal(0, 1, (1000, 15))
+    st.session_state.ai_model = IsolationForest(contamination=0.1, random_state=42)
+    st.session_state.ai_model.fit(normal_data)
+
+def generate_complete_sensor_data():
+    """Generate data for ALL systems including hull parameters"""
+    cycle = st.session_state.cycle_count
+    degradation = min(1.0, cycle * 0.001)
+    
+    # Simulate hull stresses based on operations
+    wave_effect = np.sin(cycle * 0.1) * 5  # Wave-induced stress
+    cargo_effect = np.random.normal(0, 3)   # Cargo loading effect
+    degradation_effect = degradation * 10
+    
+    data = {
+        # === HULL & STRUCTURAL PARAMETERS ===
+        'trim_angle': 0.5 + np.random.normal(0, 0.3) + degradation * 0.3,
+        'heel_angle': 0.3 + np.random.normal(0, 0.2) + degradation * 0.2,
+        'draft_forward': 18.5 + np.random.normal(0, 0.2),
+        'draft_aft': 18.2 + np.random.normal(0, 0.2),
+        'hull_stress': 25 + wave_effect + cargo_effect + degradation_effect,
+        'bending_moment': 1200 + np.random.normal(0, 100) + degradation * 150,
+        'shear_force': 800 + np.random.normal(0, 80) + degradation * 100,
+        'hogging_sagging': np.sin(cycle * 0.05) * 50,  # Hogging/sagging moment
+        
+        # === VIBRATION with degradation ===
+        'vib_dg1_de': 1.2 + np.random.normal(0, 0.3) + degradation * 0.5,
+        'vib_dg2_de': 1.5 + np.random.normal(0, 0.4) + degradation * 0.6,
+        'vib_cargo_pump': 2.1 + np.random.normal(0, 0.5) + degradation * 0.8,
+        'vib_ballast_pump': 1.8 + np.random.normal(0, 0.4) + degradation * 0.7,
+        
+        # === TEMPERATURE with degradation ===
+        'dg1_temp': 85 + np.random.normal(0, 5) + degradation * 10,
+        'dg2_temp': 82 + np.random.normal(0, 6) + degradation * 8,
+        'cargo_pump_temp': 88 + np.random.normal(0, 7) + degradation * 12,
+        
+        # === CARGO SYSTEM ===
+        'cargo_temp_1': 42 + np.random.normal(0, 2),
+        'cargo_temp_2': 43 + np.random.normal(0, 2),
+        'cargo_temp_3': 41 + np.random.normal(0, 2),
+        'cargo_temp_4': 44 + np.random.normal(0, 2),
+        'cargo_temp_5': 42.5 + np.random.normal(0, 2),
+        'cargo_temp_6': 43.5 + np.random.normal(0, 2),
+        
+        # === BALLAST SYSTEM ===
+        'ballast_port_1_level': 60 + np.random.normal(0, 8),
+        'ballast_port_2_level': 55 + np.random.normal(0, 8),
+        'ballast_stbd_1_level': 61 + np.random.normal(0, 8),
+        'ballast_stbd_2_level': 56 + np.random.normal(0, 8),
+        'ballast_forepeak_level': 70 + np.random.normal(0, 5),
+        
+        # === IGS SYSTEM ===
+        'igs_o2_tank1': 2.0 + np.random.normal(0, 0.3),
+        'igs_pressure': 0.15 + np.random.normal(0, 0.02),
+        
+        # === MR DAMPERS ===
+        'damper_dg1_force': 1000,
+        'damper_dg2_force': 1000,
     }
+    
+    # Apply heel effect to ballast tanks
+    heel_effect = data['heel_angle'] * 2
+    data['ballast_port_1_level'] = max(0, min(100, data['ballast_port_1_level'] - heel_effect))
+    data['ballast_stbd_1_level'] = max(0, min(100, data['ballast_stbd_1_level'] + heel_effect))
+    
+    # Adaptive damper control
+    for equipment in ['dg1', 'dg2']:
+        vib_key = f'vib_{equipment}_de'
+        damper_key = f'damper_{equipment}_force'
+        if data[vib_key] > 3.0:
+            data[damper_key] = 4000
+        elif data[vib_key] > 2.0:
+            data[damper_key] = 2000
+    
+    # AI anomaly detection
+    try:
+        features = [data['hull_stress'], data['heel_angle'], 
+                   data['vib_dg1_de'], data['dg1_temp']]
+        ai_prediction = st.session_state.ai_model.predict([features])[0]
+        data['ai_anomaly'] = ai_prediction
+        data['ai_confidence'] = abs(st.session_state.ai_model.decision_function([features])[0])
+        
+        if ai_prediction == -1:
+            data['ai_action'] = "PREEMPTIVE_DAMPING"
+            if np.random.random() < 0.3:  # 30% chance this prevented an incident
+                st.session_state.prevented_incidents += 1
+                st.session_state.cost_savings += 250000
+        else:
+            data['ai_action'] = "MONITORING"
+    except:
+        data['ai_anomaly'] = 1
+        data['ai_action'] = "MONITORING"
+    
+    return data
 
-def calculate_risk_level(data):
-    """Calculate risk level based on sensor data"""
+def create_hull_visualization(data):
+    """Create 3D hull visualization with stress and deformation"""
     if not data:
-        return "LOW"
+        return go.Figure()
     
-    risk_score = 0
+    # Create hull geometry points
+    length = 100  # meters
+    width = 20    # meters
+    height = 10   # meters
     
-    # Ballast system checks
-    if abs(data['trim_angle']) > 2.0:
-        risk_score += 30
-    elif abs(data['trim_angle']) > 1.0:
-        risk_score += 15
-        
-    if abs(data['heel_angle']) > 1.5:
-        risk_score += 25
-    elif abs(data['heel_angle']) > 0.5:
-        risk_score += 12
-        
-    if data['ballast_pressure'] < 2.0:
-        risk_score += 40
-    elif data['ballast_pressure'] < 2.5:
-        risk_score += 20
-        
-    if data['ballast_pump_temp'] > 100:
-        risk_score += 35
-    elif data['ballast_pump_temp'] > 85:
-        risk_score += 18
-        
-    # Fire system checks
-    if data['fire_pressure'] < 4.0:
-        risk_score += 45
-    elif data['fire_pressure'] < 6.0:
-        risk_score += 22
-        
-    if data['fire_pump_temp'] > 105:
-        risk_score += 30
-    elif data['fire_pump_temp'] > 90:
-        risk_score += 15
-        
-    # Cargo system checks
-    avg_cargo_temp = np.mean([data['cargo_temp_1'], data['cargo_temp_2'], data['cargo_temp_3']])
-    if avg_cargo_temp > 55 or avg_cargo_temp < 30:
-        risk_score += 20
-        
-    if data['heating_pump_temp'] > 100:
-        risk_score += 25
-    elif data['heating_pump_temp'] > 90:
-        risk_score += 12
+    # Hull vertices
+    x = np.array([0, length, length, 0, 0, length, length, 0])
+    y = np.array([0, 0, width, width, 0, 0, width, width]) 
+    z = np.array([0, 0, 0, 0, height, height, height, height])
     
-    # Determine risk level
-    if risk_score >= 80:
-        return "CRITICAL"
-    elif risk_score >= 50:
-        return "HIGH"
-    elif risk_score >= 25:
-        return "MEDIUM"
-    else:
-        return "LOW"
+    # Apply heel and trim transformations
+    heel_rad = np.radians(data['heel_angle'])
+    trim_rad = np.radians(data['trim_angle'])
+    
+    # Heel rotation (around x-axis)
+    y_heel = y * np.cos(heel_rad) - z * np.sin(heel_rad)
+    z_heel = y * np.sin(heel_rad) + z * np.cos(heel_rad)
+    
+    # Trim rotation (around y-axis)
+    x_trim = x * np.cos(trim_rad) - z_heel * np.sin(trim_rad)
+    z_final = x * np.sin(trim_rad) + z_heel * np.cos(trim_rad)
+    
+    fig = go.Figure()
+    
+    # Hull mesh
+    fig.add_trace(go.Mesh3d(
+        x=x_trim, y=y_heel, z=z_final,
+        color='lightblue',
+        opacity=0.7,
+        name="Hull Structure",
+        showscale=False
+    ))
+    
+    # Stress points with color coding
+    stress_points = [
+        [25, 10, 5], [75, 10, 5],  # Mid-ship (high stress)
+        [10, 5, 8], [90, 5, 8],    # Bow/stern areas
+        [50, 2, 6], [50, 18, 6],   # Port/starboard sides
+    ]
+    
+    for i, point in enumerate(stress_points):
+        # Calculate stress at this point
+        base_stress = data['hull_stress']
+        location_factor = 1.0 + (i * 0.2)  # Different locations have different stress
+        point_stress = base_stress * location_factor + np.random.normal(0, 3)
+        
+        # Color based on stress level
+        if point_stress > 45:
+            color = 'red'
+            size = 12
+        elif point_stress > 35:
+            color = 'orange' 
+            size = 9
+        else:
+            color = 'green'
+            size = 6
+            
+        fig.add_trace(go.Scatter3d(
+            x=[point[0]], y=[point[1]], z=[point[2]],
+            mode='markers',
+            marker=dict(size=size, color=color),
+            name=f"Stress: {point_stress:.0f}%",
+            text=f"Stress: {point_stress:.0f}%",
+            hovertemplate="<b>Hull Stress Point</b><br>Stress: %{text}<br>Location: %{x:.0f}m, %{y:.0f}m<extra></extra>"
+        ))
+    
+    # Add waterline based on draft
+    waterline_z = -data['draft_forward'] * 0.5  # Scale for visualization
+    waterline_points = 20
+    waterline_x = np.linspace(0, length, waterline_points)
+    waterline_y = np.linspace(0, width, waterline_points)
+    xx, yy = np.meshgrid(waterline_x, waterline_y)
+    zz = np.full_like(xx, waterline_z)
+    
+    fig.add_trace(go.Surface(
+        x=xx, y=yy, z=zz,
+        colorscale='Blues',
+        opacity=0.3,
+        showscale=False,
+        name="Waterline"
+    ))
+    
+    fig.update_layout(
+        title={
+            'text': f"FPSO Hull - 3D Structural Analysis<br>Heel: {data['heel_angle']:.1f}° | Trim: {data['trim_angle']:.1f}° | Stress: {data['hull_stress']:.0f}%",
+            'x': 0.5,
+            'xanchor': 'center'
+        },
+        scene=dict(
+            xaxis_title="Length (m)",
+            yaxis_title="Width (m)",
+            zaxis_title="Height (m)",
+            aspectmode='data',
+            camera=dict(eye=dict(x=1.5, y=1.5, z=1.2))
+        ),
+        height=500,
+        margin=dict(l=0, r=0, b=0, t=50)
+    )
+    
+    return fig
 
-def display_ballast_monitoring():
-    """Ballast System Monitoring Interface"""
-    st.subheader("⚖️ Ballast System & Stability Monitoring")
+def create_hull_stress_analysis(data):
+    """Create 2D stress analysis chart"""
+    if not data:
+        return go.Figure()
     
-    if not st.session_state.system_data:
-        st.info("📊 Monitoring not active. Click 'Start Monitoring' to begin.")
-        return
+    fig = go.Figure()
     
-    data = st.session_state.system_data
+    # Structural loads
+    loads = {
+        'Bending Moment': data['bending_moment'],
+        'Shear Force': data['shear_force'],
+        'Hull Stress': data['hull_stress'],
+        'Hogging/Sagging': data.get('hogging_sagging', 0)
+    }
     
-    col1, col2, col3, col4 = st.columns(4)
+    colors = []
+    for load, value in loads.items():
+        if load == 'Bending Moment':
+            if value > 1600: colors.append('red')
+            elif value > 1400: colors.append('orange')
+            else: colors.append('green')
+        elif load == 'Shear Force':
+            if value > 1200: colors.append('red')
+            elif value > 1000: colors.append('orange')
+            else: colors.append('green')
+        else:  # Stress
+            if value > 45: colors.append('red')
+            elif value > 35: colors.append('orange')
+            else: colors.append('green')
     
-    with col1:
-        trim_angle = data['trim_angle']
-        if abs(trim_angle) > 2.0:
-            st.error(f"🚨 Trim Angle\n{trim_angle:.1f}°")
-        elif abs(trim_angle) > 1.0:
-            st.warning(f"⚠️ Trim Angle\n{trim_angle:.1f}°")
-        else:
-            st.success(f"✅ Trim Angle\n{trim_angle:.1f}°")
-            
-    with col2:
-        heel_angle = data['heel_angle']
-        if abs(heel_angle) > 1.5:
-            st.error(f"🚨 Heel Angle\n{heel_angle:.1f}°")
-        elif abs(heel_angle) > 0.5:
-            st.warning(f"⚠️ Heel Angle\n{heel_angle:.1f}°")
-        else:
-            st.success(f"✅ Heel Angle\n{heel_angle:.1f}°")
-            
-    with col3:
-        ballast_pressure = data['ballast_pressure']
-        if ballast_pressure < 2.0:
-            st.error(f"🚨 Pressure\n{ballast_pressure:.1f} bar")
-        elif ballast_pressure < 2.5:
-            st.warning(f"⚠️ Pressure\n{ballast_pressure:.1f} bar")
-        else:
-            st.success(f"✅ Pressure\n{ballast_pressure:.1f} bar")
-            
-    with col4:
-        ballast_pump_temp = data['ballast_pump_temp']
-        if ballast_pump_temp > 100:
-            st.error(f"🚨 Pump Temp\n{ballast_pump_temp:.1f}°C")
-        elif ballast_pump_temp > 85:
-            st.warning(f"⚠️ Pump Temp\n{ballast_pump_temp:.1f}°C")
-        else:
-            st.success(f"✅ Pump Temp\n{ballast_pump_temp:.1f}°C")
+    fig.add_trace(go.Bar(
+        x=list(loads.keys()),
+        y=list(loads.values()),
+        marker_color=colors,
+        text=[f"{v:.0f}" for v in loads.values()],
+        textposition='auto',
+    ))
+    
+    # Add critical limits
+    fig.add_hline(y=1600, line_dash="dash", line_color="red", annotation_text="Bending Critical")
+    fig.add_hline(y=1400, line_dash="dot", line_color="orange", annotation_text="Bending Warning")
+    fig.add_hline(y=1200, line_dash="dash", line_color="red", annotation_text="Shear Critical")
+    fig.add_hline(y=1000, line_dash="dot", line_color="orange", annotation_text="Shear Warning")
+    fig.add_hline(y=45, line_dash="dash", line_color="red", annotation_text="Stress Critical")
+    fig.add_hline(y=35, line_dash="dot", line_color="orange", annotation_text="Stress Warning")
+    
+    fig.update_layout(
+        title="Hull Structural Load Analysis",
+        xaxis_title="Load Types",
+        yaxis_title="Load Value",
+        height=300
+    )
+    
+    return fig
 
-def display_fire_system_monitoring():
-    """Fire System Monitoring Interface"""
-    st.subheader("🔥 Fire Fighting System Monitoring")
+def create_tank_temperature_chart(data):
+    """Create cargo tank temperature visualization"""
+    if not data:
+        return go.Figure()
     
-    if not st.session_state.system_data:
-        return
+    tank_temps = {
+        'Tank 1': data['cargo_temp_1'],
+        'Tank 2': data['cargo_temp_2'],
+        'Tank 3': data['cargo_temp_3'], 
+        'Tank 4': data['cargo_temp_4'],
+        'Tank 5': data['cargo_temp_5'],
+        'Tank 6': data['cargo_temp_6']
+    }
     
-    data = st.session_state.system_data
+    colors = ['red' if temp > 50 else 'orange' if temp > 45 else 'green' 
+              for temp in tank_temps.values()]
     
-    col1, col2, col3, col4 = st.columns(4)
+    fig = go.Figure(data=[
+        go.Bar(
+            x=list(tank_temps.keys()),
+            y=list(tank_temps.values()),
+            marker_color=colors,
+            text=[f"{temp:.1f}°C" for temp in tank_temps.values()],
+            textposition='auto',
+        )
+    ])
     
-    with col1:
-        fire_pressure = data['fire_pressure']
-        if fire_pressure < 4.0:
-            st.error(f"🚨 Fire Main\n{fire_pressure:.1f} bar")
-        elif fire_pressure < 6.0:
-            st.warning(f"⚠️ Fire Main\n{fire_pressure:.1f} bar")
-        else:
-            st.success(f"✅ Fire Main\n{fire_pressure:.1f} bar")
-            
-    with col2:
-        fire_pump_temp = data['fire_pump_temp']
-        if fire_pump_temp > 105:
-            st.error(f"🚨 Fire Pump\n{fire_pump_temp:.1f}°C")
-        elif fire_pump_temp > 90:
-            st.warning(f"⚠️ Fire Pump\n{fire_pump_temp:.1f}°C")
-        else:
-            st.success(f"✅ Fire Pump\n{fire_pump_temp:.1f}°C")
-            
-    with col3:
-        status = "READY" if fire_pressure > 6.0 and fire_pump_temp < 90 else "CHECK"
-        color = "✅" if status == "READY" else "⚠️"
-        st.metric("Deluge System", f"{color} {status}")
-            
-    with col4:
-        status = "ACTIVE" if fire_pressure > 5.0 else "STANDBY"
-        color = "✅" if status == "ACTIVE" else "🟡"
-        st.metric("Foam System", f"{color} {status}")
+    fig.update_layout(
+        title="Cargo Tank Temperatures",
+        xaxis_title="Tanks",
+        yaxis_title="Temperature (°C)",
+        height=300
+    )
+    
+    fig.add_hline(y=55, line_dash="dash", line_color="red", annotation_text="Critical")
+    fig.add_hline(y=45, line_dash="dot", line_color="orange", annotation_text="Warning")
+    
+    return fig
 
-def display_cargo_heating_monitoring():
-    """Cargo Heating Monitoring Interface"""
-    st.subheader("🌡️ Cargo Tank Heating System")
+def create_vibration_dashboard(data):
+    """Create vibration and damper monitoring"""
+    if not data:
+        return go.Figure()
     
-    if not st.session_state.system_data:
-        return
+    fig = go.Figure()
     
-    data = st.session_state.system_data
+    equipment = ['DG1', 'DG2', 'Cargo Pump', 'Ballast Pump']
+    vibrations = [data['vib_dg1_de'], data['vib_dg2_de'], 
+                 data['vib_cargo_pump'], data['vib_ballast_pump']]
+    damper_forces = [data['damper_dg1_force'], data['damper_dg2_force'], 1000, 1000]
     
-    col1, col2, col3, col4 = st.columns(4)
+    fig.add_trace(go.Bar(
+        name='Vibration (mm/s)',
+        x=equipment,
+        y=vibrations,
+        marker_color=['red' if v > 3.0 else 'orange' if v > 2.0 else 'green' for v in vibrations],
+        text=[f"{v:.1f} mm/s" for v in vibrations],
+        textposition='auto',
+    ))
     
-    with col1:
-        cargo_temp_1 = data['cargo_temp_1']
-        trend = np.random.choice(['+', '-']) + f"{np.random.uniform(0.1, 0.8):.1f}"
-        st.metric("Tank 1", f"{cargo_temp_1:.1f}°C", trend)
-        
-    with col2:
-        cargo_temp_2 = data['cargo_temp_2']
-        trend = np.random.choice(['+', '-']) + f"{np.random.uniform(0.1, 0.8):.1f}"
-        st.metric("Tank 2", f"{cargo_temp_2:.1f}°C", trend)
-        
-    with col3:
-        cargo_temp_3 = data['cargo_temp_3']
-        trend = np.random.choice(['+', '-']) + f"{np.random.uniform(0.1, 0.8):.1f}"
-        st.metric("Tank 3", f"{cargo_temp_3:.1f}°C", trend)
-        
-    with col4:
-        heating_pump_temp = data['heating_pump_temp']
-        if heating_pump_temp > 100:
-            st.error(f"🚨 Heating Pump\n{heating_pump_temp:.1f}°C")
-        elif heating_pump_temp > 90:
-            st.warning(f"⚠️ Heating Pump\n{heating_pump_temp:.1f}°C")
-        else:
-            st.success(f"✅ Heating Pump\n{heating_pump_temp:.1f}°C")
+    fig.add_trace(go.Scatter(
+        name='Damper Force (N)',
+        x=equipment[:2],  # Only for DG1 and DG2
+        y=damper_forces[:2],
+        mode='lines+markers+text',
+        line=dict(color='blue', width=3),
+        marker=dict(size=10),
+        text=[f"{f} N" for f in damper_forces[:2]],
+        textposition='top center',
+        yaxis='y2'
+    ))
+    
+    fig.update_layout(
+        title="Vibration Monitoring & MR Damper Control",
+        xaxis_title="Equipment",
+        yaxis_title="Vibration (mm/s)",
+        yaxis2=dict(
+            title="Damper Force (N)",
+            overlaying='y',
+            side='right'
+        ),
+        height=350
+    )
+    
+    fig.add_hline(y=4.0, line_dash="dash", line_color="red", annotation_text="Critical")
+    fig.add_hline(y=2.0, line_dash="dot", line_color="orange", annotation_text="Warning")
+    
+    return fig
 
 # Main Application
 def main():
-    # Main Title
-    st.title("🌊 FPSO Spirit - Digital Soul of Floating Production")
-    st.markdown("### *Where Engineering Meets Consciousness*")
+    st.title("🌊 FPSO Spirit - Complete Hull & Systems Monitoring")
+    st.markdown("### *3D Hull Visualization + AVCS DNA + Thermal DNA*")
 
-    # Auto-refresh logic (only if not in emergency stop)
+    # Auto-refresh
     if st.session_state.monitoring_active and not st.session_state.emergency_stop:
         current_time = datetime.now()
         time_diff = (current_time - st.session_state.last_update).total_seconds()
         
-        # Update data every 3 seconds
         if time_diff >= 3:
-            st.session_state.system_data = generate_sensor_data()
-            st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
+            st.session_state.system_data = generate_complete_sensor_data()
             st.session_state.cycle_count += 1
             st.session_state.last_update = current_time
             
-            # Use Streamlit's built-in auto-refresh
+            if len(st.session_state.historical_data) > 50:
+                st.session_state.historical_data.pop(0)
+            st.session_state.historical_data.append(st.session_state.system_data.copy())
+            
             st.rerun()
 
-    # System Status with Emergency Stop indicator
+    # System Status
     if st.session_state.emergency_stop:
-        st.error("🚨🚨🚨 EMERGENCY STOP ACTIVATED - ALL SYSTEMS HALTED 🚨🚨🚨")
-        st.warning("⚠️ Acknowledge emergency stop to resume operations")
-        
+        st.error("🚨 EMERGENCY STOP - ALL SYSTEMS HALTED")
     elif st.session_state.monitoring_active:
-        st.success(f"🚀 LIVE MONITORING - Cycle #{st.session_state.cycle_count}")
-        
-        # Animation indicator
-        with st.empty():
-            animation_frames = ["🌊", "🌀", "⚡", "✨"]
-            current_frame = animation_frames[st.session_state.cycle_count % len(animation_frames)]
-            st.markdown(f"### {current_frame} **REAL-TIME DATA STREAMING** {current_frame}")
-            
-        # Next update countdown
-        next_update = 3 - (datetime.now() - st.session_state.last_update).total_seconds()
-        st.info(f"🔄 Next update in: {max(0, int(next_update))} seconds")
-        
+        data = st.session_state.system_data
+        ai_status = data.get('ai_action', 'MONITORING')
+        st.success(f"🚀 ACTIVE MONITORING - Cycle #{st.session_state.cycle_count}")
+        st.info(f"AI Status: {ai_status} | Prevented Incidents: {st.session_state.prevented_incidents}")
     else:
-        st.info("🟡 SYSTEM READY - Click 'Start Monitoring' to begin live data streaming")
+        st.info("🟡 SYSTEM READY - Click Start to Begin 3D Monitoring")
 
-    # Dashboard Columns
-    col1, col2, col3, col4 = st.columns(4)
+    # 3D HULL VISUALIZATION
+    st.subheader("🚢 FPSO Hull - 3D Structural Analysis")
+    if st.session_state.system_data:
+        hull_fig = create_hull_visualization(st.session_state.system_data)
+        st.plotly_chart(hull_fig, use_container_width=True)
+    else:
+        st.info("Start monitoring to see 3D hull visualization")
 
+    # Systems Dashboards
+    col1, col2 = st.columns(2)
+    
     with col1:
+        if st.session_state.system_data:
+            stress_fig = create_hull_stress_analysis(st.session_state.system_data)
+            st.plotly_chart(stress_fig, use_container_width=True)
+    
+    with col2:
+        if st.session_state.system_data:
+            temp_fig = create_tank_temperature_chart(st.session_state.system_data)
+            st.plotly_chart(temp_fig, use_container_width=True)
+
+    # Vibration & Dampers
+    st.subheader("🎯 Vibration Control & MR Dampers")
+    if st.session_state.system_data:
+        vib_fig = create_vibration_dashboard(st.session_state.system_data)
+        st.plotly_chart(vib_fig, use_container_width=True)
+
+    # Current Parameters
+    if st.session_state.system_data:
+        st.subheader("📊 Real-time Parameters")
+        data = st.session_state.system_data
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Heel Angle", f"{data['heel_angle']:.1f}°")
+            st.metric("Trim Angle", f"{data['trim_angle']:.1f}°")
+            
+        with col2:
+            st.metric("Hull Stress", f"{data['hull_stress']:.0f}%")
+            st.metric("Bending Moment", f"{data['bending_moment']:.0f} kN·m")
+            
+        with col3:
+            st.metric("DG1 Vibration", f"{data['vib_dg1_de']:.1f} mm/s")
+            st.metric("DG1 Temperature", f"{data['dg1_temp']:.0f}°C")
+            
+        with col4:
+            st.metric("AI Detection", data.get('ai_action', 'MONITORING'))
+            st.metric("Cost Savings", f"${st.session_state.cost_savings:,}")
+
+    # Control Panel
+    with st.sidebar:
+        st.header("🎛️ Complete System Control")
+        
         if st.session_state.emergency_stop:
             st.error("🚨 EMERGENCY STOP")
-        else:
-            status = "ACTIVE" if st.session_state.monitoring_active else "STANDBY"
-            color = "🟢" if st.session_state.monitoring_active else "🟡"
-            st.metric("System Status", f"{color} {status}")
-        
-    with col2:
-        risk_color = {
-            "CRITICAL": "🔴",
-            "HIGH": "🟠", 
-            "MEDIUM": "🟡",
-            "LOW": "🟢"
-        }.get(st.session_state.risk_level, "🟢")
-        st.metric("Risk Level", f"{risk_color} {st.session_state.risk_level}")
-
-    with col3:
-        if st.session_state.emergency_stop:
-            st.error("SYSTEMS OFFLINE")
-        else:
-            systems = "6/8" if st.session_state.monitoring_active else "0/8"
-            st.metric("Active Systems", systems)
-
-    with col4:
-        st.metric("Data Cycles", st.session_state.cycle_count)
-
-    # System Overview with animated progress bars (only if not emergency stop)
-    st.subheader("🎯 System Consciousness States")
-
-    if st.session_state.emergency_stop:
-        st.error("🔴 ALL SYSTEMS OFFLINE - EMERGENCY STOP ACTIVE")
-        for system in ["Ballast System", "IGS System", "Fire System", "Power System", "Production", "Cargo Heating"]:
-            st.progress(0, f"{system}: OFFLINE (0%)")
-    else:
-        base_awareness = {
-            "Ballast System": 96,
-            "IGS System": 98, 
-            "Fire System": 95,
-            "Power System": 92,
-            "Production": 94,
-            "Cargo Heating": 91
-        }
-
-        # Adjust awareness based on risk level and add animation
-        risk_modifier = {
-            "CRITICAL": -20,
-            "HIGH": -10,
-            "MEDIUM": -5,
-            "LOW": 0
-        }.get(st.session_state.risk_level, 0)
-
-        # Add subtle animation to awareness values
-        animation_offset = np.sin(st.session_state.cycle_count * 0.5) * 2 if st.session_state.monitoring_active else 0
-
-        for system, awareness in base_awareness.items():
-            adjusted_awareness = max(50, min(100, awareness + risk_modifier + animation_offset))
-            state = "ALERT" if risk_modifier < -5 else "NORMAL"
-            
-            # Animated progress bar
-            progress_html = f"""
-            <div style="background: #262730; padding: 10px; border-radius: 10px; margin: 5px 0;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                    <span>{system}</span>
-                    <span>{state} ({adjusted_awareness:.0f}%)</span>
-                </div>
-                <div style="background: #1E88E5; height: 20px; border-radius: 10px; width: {adjusted_awareness}%; 
-                         transition: width 0.5s ease-in-out; animation: pulse 2s infinite;">
-                </div>
-            </div>
-            <style>
-            @keyframes pulse {{
-                0% {{ opacity: 1; }}
-                50% {{ opacity: 0.7; }}
-                100% {{ opacity: 1; }}
-            }}
-            </style>
-            """
-            st.markdown(progress_html, unsafe_allow_html=True)
-
-    # Systems Monitoring (only if not emergency stop)
-    if not st.session_state.emergency_stop:
-        display_ballast_monitoring()
-        display_fire_system_monitoring()
-        display_cargo_heating_monitoring()
-
-        # Manual refresh option
-        if st.session_state.monitoring_active:
-            col1, col2 = st.columns([3, 1])
-            with col2:
-                if st.button("🔄 Force Update", type="secondary"):
-                    st.session_state.system_data = generate_sensor_data()
-                    st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
-                    st.session_state.cycle_count += 1
-                    st.session_state.last_update = datetime.now()
-                    st.rerun()
-
-    # Footer
-    st.markdown("---")
-    st.caption(f"FPSO Spirit v1.3 | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Breathing consciousness into steel")
-
-    # Sidebar with Emergency Stop
-    with st.sidebar:
-        st.header("🎛️ Control Panel")
-        
-        if st.session_state.emergency_stop:
-            # Emergency Stop Active - Show acknowledge button
-            st.error("🚨 EMERGENCY STOP ACTIVE")
-            if st.button("✅ Acknowledge & Reset", type="primary", use_container_width=True):
+            if st.button("✅ Reset System", type="primary", use_container_width=True):
                 st.session_state.emergency_stop = False
-                st.session_state.monitoring_active = False
                 st.rerun()
-                
         else:
-            # Normal operation
             col1, col2 = st.columns(2)
-            
             with col1:
                 if not st.session_state.monitoring_active:
-                    if st.button("⚡ Start", type="primary", use_container_width=True):
+                    if st.button("⚡ Start All", type="primary", use_container_width=True):
                         st.session_state.monitoring_active = True
-                        st.session_state.system_data = generate_sensor_data()
-                        st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
-                        st.session_state.cycle_count = 1
-                        st.session_state.last_update = datetime.now()
+                        st.session_state.simulation_start = datetime.now()
                         st.rerun()
                 else:
                     if st.button("⏸️ Stop", type="secondary", use_container_width=True):
                         st.session_state.monitoring_active = False
                         st.rerun()
-            
             with col2:
-                if st.button("🛑 E-Stop", type="secondary", use_container_width=True, 
-                           help="Immediate system shutdown"):
+                if st.button("🛑 E-Stop", type="secondary", use_container_width=True):
                     st.session_state.emergency_stop = True
                     st.session_state.monitoring_active = False
                     st.rerun()
-        
+
         st.markdown("---")
         st.subheader("System Status")
-        
-        if st.session_state.emergency_stop:
-            st.error("**Status:** EMERGENCY STOP")
-            st.error("**All Systems:** OFFLINE")
-        else:
-            st.write(f"**Monitoring:** {'🟢 ACTIVE' if st.session_state.monitoring_active else '🟡 STANDBY'}")
-            st.write(f"**Risk Level:** {st.session_state.risk_level}")
-        
-        st.write(f"**Cycles:** {st.session_state.cycle_count}")
-        st.write(f"**Last Update:** {st.session_state.last_update.strftime('%H:%M:%S')}")
-        
-        st.markdown("---")
-        st.subheader("Quick Actions")
-        
-        if not st.session_state.emergency_stop:
-            if st.button("🎲 Simulate Data", use_container_width=True):
-                st.session_state.system_data = generate_sensor_data()
-                st.session_state.risk_level = calculate_risk_level(st.session_state.system_data)
-                if st.session_state.monitoring_active:
-                    st.session_state.cycle_count += 1
-                st.rerun()
+        st.write("✅ **3D Hull Monitoring**")
+        st.write("✅ **Structural Analysis**")
+        st.write("✅ **Vibration Control**")
+        st.write("✅ **Thermal DNA**")
+        st.write("✅ **AI Predictive**")
+        st.write(f"**Uptime:** {((datetime.now() - st.session_state.simulation_start).total_seconds() / 3600):.1f}h")
 
 if __name__ == "__main__":
     main()
