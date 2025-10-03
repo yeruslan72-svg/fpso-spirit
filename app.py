@@ -5,243 +5,346 @@ import plotly.express as px
 from datetime import datetime, timedelta
 from sklearn.ensemble import IsolationForest
 import random
-import time
 
 # =========================
-# PAGE CONFIG
+# REAL FPSO CONFIGURATION
 # =========================
-st.set_page_config(
-    page_title="FPSO Spirit - AVCS + Thermal DNA",
-    page_icon="🌊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# =========================
-# SESSION STATE INIT
-# =========================
-if "system_data" not in st.session_state:
-    st.session_state.system_data = {}
-if "monitoring_active" not in st.session_state:
-    st.session_state.monitoring_active = False
-if "emergency_stop" not in st.session_state:
-    st.session_state.emergency_stop = False
-if "cycle_count" not in st.session_state:
-    st.session_state.cycle_count = 0
-if "historical_data" not in st.session_state:
-    st.session_state.historical_data = []
-if "last_update" not in st.session_state:
-    st.session_state.last_update = datetime.now()
-if "prevented_incidents" not in st.session_state:
-    st.session_state.prevented_incidents = 0
-if "cost_savings" not in st.session_state:
-    st.session_state.cost_savings = 0
-
-# AI Model
-if "ai_model" not in st.session_state:
-    np.random.seed(42)
-    normal_data = np.random.normal(0, 1, (1000, 20))
-    st.session_state.ai_model = IsolationForest(contamination=0.08, random_state=42)
-    st.session_state.ai_model.fit(normal_data)
-
-
-# =========================
-# DATA GENERATOR
-# =========================
-def generate_sensor_data(cycle: int):
-    degradation = min(1.0, cycle * 0.001)
-
-    data = {
-        # Hull
-        "heel_angle": 0.3 + np.random.normal(0, 0.2) + degradation * 0.3,
-        "trim_angle": 0.4 + np.random.normal(0, 0.2) + degradation * 0.2,
-        "hull_stress": 25 + np.sin(cycle * 0.1) * 10 + degradation * 15,
-        "bending_moment": 1200 + np.random.normal(0, 100) + degradation * 120,
-        "shear_force": 800 + np.random.normal(0, 80) + degradation * 100,
-
-        # Equipment vibration (mm/s)
-        "DG1_vib": 1.5 + np.random.normal(0, 0.3) + degradation * 0.6,
-        "DG2_vib": 1.6 + np.random.normal(0, 0.4) + degradation * 0.7,
-        "Pump1_vib": 2.0 + np.random.normal(0, 0.5) + degradation * 0.8,
-        "Pump2_vib": 1.8 + np.random.normal(0, 0.5) + degradation * 0.7,
-        "Pump3_vib": 2.1 + np.random.normal(0, 0.5) + degradation * 0.9,
-        "BallastP_vib": 1.7 + np.random.normal(0, 0.3) + degradation * 0.5,
-        "BallastS_vib": 1.6 + np.random.normal(0, 0.3) + degradation * 0.6,
-        "Boiler_vib": 0.8 + np.random.normal(0, 0.2),
-        "IG_vib": 0.5 + np.random.normal(0, 0.1),
-
-        # Equipment temperature (°C)
-        "DG1_temp": 85 + np.random.normal(0, 5) + degradation * 10,
-        "DG2_temp": 82 + np.random.normal(0, 6) + degradation * 8,
-        "Pump1_temp": 88 + np.random.normal(0, 7) + degradation * 12,
-        "Pump2_temp": 86 + np.random.normal(0, 6) + degradation * 11,
-        "Pump3_temp": 87 + np.random.normal(0, 7) + degradation * 12,
-        "Boiler_temp": 120 + np.random.normal(0, 10),
-        "IG_temp": 60 + np.random.normal(0, 5),
-
-        # Cargo tanks
-        **{f"Cargo_{i}": 42 + np.random.normal(0, 2) for i in range(1, 7)},
-
-        # Ballast tanks (Port + Starboard)
-        **{f"BallastP_{i}": 55 + np.random.normal(0, 5) for i in range(1, 7)},
-        **{f"BallastS_{i}": 55 + np.random.normal(0, 5) for i in range(1, 7)},
-
-        # Slop & Forepeak
-        "SlopP": 40 + np.random.normal(0, 3),
-        "SlopS": 41 + np.random.normal(0, 3),
-        "Forepeak": 60 + np.random.normal(0, 5),
+class FPSOConfig:
+    """Конфигурация реального FPSO на основе вашего описания"""
+    
+    # Насосное отделение
+    CARGO_PUMPS = {
+        'CargoPump_A': {'location': 'Pump Room', 'type': 'Vertical Centrifugal', 'power': 800},
+        'CargoPump_B': {'location': 'Pump Room', 'type': 'Vertical Centrifugal', 'power': 800},
+        'CargoPump_C': {'location': 'Pump Room', 'type': 'Vertical Centrifugal', 'power': 800},
+    }
+    
+    BALLAST_PUMPS = {
+        'BallastPump_Port': {'location': 'Pump Room', 'type': 'Vertical Centrifugal', 'power': 400},
+        'BallastPump_Stbd': {'location': 'Pump Room', 'type': 'Vertical Centrifugal', 'power': 400},
+    }
+    
+    FIRE_PUMPS = {
+        'FirePump_1': {'location': 'Pump Room', 'type': 'Vertical Centrifugal', 'power': 300},
+        'FirePump_2': {'location': 'Pump Room', 'type': 'Vertical Centrifugal', 'power': 300},
+    }
+    
+    # Дизель-генераторы
+    DIESEL_GENERATORS = {
+        'DG1_Caterpillar': {'location': 'Second Deck', 'power': 4500, 'fuel': 'MDO'},
+        'DG2_Caterpillar': {'location': 'Second Deck', 'power': 4500, 'fuel': 'MDO'},
+    }
+    
+    # Танковая система
+    CARGO_TANKS = {f'Cargo_Tank_{i}': {'capacity': 15000, 'product': 'Crude Oil'} for i in range(1, 7)}
+    SLOP_TANKS = {
+        'Slop_Tank_Port': {'capacity': 500, 'purpose': 'Drainage Collection'},
+        'Slop_Tank_Stbd': {'capacity': 500, 'purpose': 'Drainage Collection'},
+    }
+    
+    BALLAST_TANKS = {
+        **{f'Ballast_Port_{i}': {'capacity': 800} for i in range(1, 7)},
+        **{f'Ballast_Stbd_{i}': {'capacity': 800} for i in range(1, 7)},
+        'Forepeak_Tank': {'capacity': 300}
+    }
+    
+    # Flow meters (Yokogawa)
+    FLOW_METERS = {
+        'FlowMeter_Import': {'location': 'Turret Input', 'type': 'Yokogawa', 'range': '0-5000 m³/h'},
+        'FlowMeter_Export': {'location': 'Export Line', 'type': 'Yokogawa', 'range': '0-5000 m³/h'},
     }
 
-    # AI detection
+# =========================
+# ENHANCED DATA GENERATOR
+# =========================
+def generate_realistic_fpso_data(cycle: int):
+    """Генерация данных для реального FPSO процесса"""
+    
+    # Базовые параметры
+    time_factor = cycle * 0.1
+    degradation = min(2.0, cycle * 0.002)
+    
+    # Симуляция операционных циклов
+    is_loading = (cycle % 200) < 100  # Чередование погрузки/отгрузки
+    is_exporting = not is_loading and (cycle % 200) > 150
+    
+    data = {
+        # === ОПЕРАЦИОННЫЕ ПАРАМЕТРЫ ===
+        'operation_mode': 'LOADING' if is_loading else 'EXPORTING' if is_exporting else 'IDLE',
+        'cycle_duration': cycle,
+        
+        # === ПОГРУЗКА/ОТГРУЗКА ===
+        'import_flow_rate': 2500 + np.random.normal(0, 200) if is_loading else 0,
+        'export_flow_rate': 2800 + np.random.normal(0, 300) if is_exporting else 0,
+        'total_cargo_loaded': min(90000, cycle * 45),  # кумулятивная загрузка
+        'total_cargo_exported': min(85000, max(0, cycle - 150) * 40),
+        
+        # === ГРУЗОВЫЕ НАСОСЫ ===
+        'CargoPump_A_flow': 800 + np.random.normal(0, 50) if is_exporting else 0,
+        'CargoPump_B_flow': 800 + np.random.normal(0, 50) if is_exporting else 0, 
+        'CargoPump_C_flow': 800 + np.random.normal(0, 50) if is_exporting else 0,
+        'CargoPump_A_vib': 1.8 + np.random.normal(0, 0.4) + degradation * 0.3,
+        'CargoPump_B_vib': 1.7 + np.random.normal(0, 0.3) + degradation * 0.4,
+        'CargoPump_C_vib': 1.9 + np.random.normal(0, 0.5) + degradation * 0.5,
+        'CargoPump_A_temp': 75 + np.random.normal(0, 5) + degradation * 8,
+        'CargoPump_B_temp': 74 + np.random.normal(0, 6) + degradation * 7,
+        'CargoPump_C_temp': 76 + np.random.normal(0, 7) + degradation * 9,
+        
+        # === БАЛЛАСТНЫЕ НАСОСЫ ===
+        'BallastPump_Port_flow': 300 + np.random.normal(0, 30),
+        'BallastPump_Stbd_flow': 300 + np.random.normal(0, 30),
+        'BallastPump_Port_vib': 1.2 + np.random.normal(0, 0.2),
+        'BallastPump_Stbd_vib': 1.3 + np.random.normal(0, 0.3),
+        'BallastPump_Port_temp': 65 + np.random.normal(0, 4),
+        'BallastPump_Stbd_temp': 66 + np.random.normal(0, 5),
+        
+        # === ПОЖАРНЫЕ НАСОСЫ ===
+        'FirePump_1_pressure': 7.5 + np.random.normal(0, 0.5),
+        'FirePump_2_pressure': 7.3 + np.random.normal(0, 0.6),
+        'FirePump_1_temp': 60 + np.random.normal(0, 3),
+        'FirePump_2_temp': 61 + np.random.normal(0, 4),
+        
+        # === ДИЗЕЛЬ-ГЕНЕРАТОРЫ ===
+        'DG1_power': 3500 + np.random.normal(0, 200),
+        'DG2_power': 3200 + np.random.normal(0, 250),
+        'DG1_vib': 1.4 + np.random.normal(0, 0.3) + degradation * 0.2,
+        'DG2_vib': 1.5 + np.random.normal(0, 0.4) + degradation * 0.3,
+        'DG1_temp': 85 + np.random.normal(0, 5) + degradation * 6,
+        'DG2_temp': 83 + np.random.normal(0, 6) + degradation * 5,
+        'DG1_fuel_rate': 280 + np.random.normal(0, 15),
+        'DG2_fuel_rate': 270 + np.random.normal(0, 20),
+        
+        # === КОТЕЛ И ТЕПЛООБМЕН ===
+        'Boiler_pressure': 8.5 + np.random.normal(0, 0.3),
+        'Boiler_temp': 125 + np.random.normal(0, 8),
+        'cargo_heating_temp': 42 + np.random.normal(0, 2),  # температура подогрева груза
+        
+        # === IGS СИСТЕМА ===
+        'IGS_generator_temp': 70 + np.random.normal(0, 4),
+        'IGS_main_pressure': 0.16 + np.random.normal(0, 0.02),
+        'IGS_flow_rate': 1200 + np.random.normal(0, 80),
+        'IGS_O2_content': 2.1 + np.random.normal(0, 0.3),
+        
+        # === ТАНКОВАЯ СИСТЕМА ===
+        **{f'Cargo_Tank_{i}_level': 80 + np.random.normal(0, 5) for i in range(1, 7)},
+        **{f'Cargo_Tank_{i}_temp': 40 + np.random.normal(0, 3) for i in range(1, 7)},
+        **{f'Ballast_Port_{i}_level': 60 + np.random.normal(0, 8) for i in range(1, 7)},
+        **{f'Ballast_Stbd_{i}_level': 58 + np.random.normal(0, 7) for i in range(1, 7)},
+        'Forepeak_Tank_level': 65 + np.random.normal(0, 4),
+        'Slop_Tank_Port_level': 45 + np.random.normal(0, 6),
+        'Slop_Tank_Stbd_level': 48 + np.random.normal(0, 5),
+        
+        # === СТРУКТУРНЫЕ ПАРАМЕТРЫ ===
+        'heel_angle': 0.2 + np.sin(time_factor) * 0.8,
+        'trim_angle': 0.3 + np.cos(time_factor) * 0.6,
+        'hull_stress': 22 + abs(np.sin(time_factor)) * 15 + degradation * 5,
+        'bending_moment': 1100 + np.random.normal(0, 80),
+        'shear_force': 750 + np.random.normal(0, 60),
+    }
+    
+    # Корректировки на основе операционного режима
+    if is_loading:
+        # Увеличиваем уровни грузовых танков при погрузке
+        for i in range(1, 7):
+            data[f'Cargo_Tank_{i}_level'] = min(95, data[f'Cargo_Tank_{i}_level'] + 0.5)
+            
+    elif is_exporting:
+        # Уменьшаем уровни при отгрузке (кроме танка 6)
+        for i in range(1, 6):
+            data[f'Cargo_Tank_{i}_level'] = max(10, data[f'Cargo_Tank_{i}_level'] - 0.8)
+    
+    # AI анализ для предиктивного обслуживания
     try:
         features = [
-            data["hull_stress"], data["heel_angle"], data["DG1_vib"], data["Pump1_vib"],
-            data["DG1_temp"], data["Pump1_temp"], data["Cargo_1"]
+            data['CargoPump_A_vib'], data['CargoPump_A_temp'], data['DG1_vib'], data['DG1_temp'],
+            data['hull_stress'], data['heel_angle'], data['IGS_O2_content']
         ]
         ai_prediction = st.session_state.ai_model.predict([features])[0]
-        data["ai_anomaly"] = ai_prediction
-        if ai_prediction == -1:
-            data["ai_action"] = "PREEMPTIVE DAMPING"
-            if random.random() < 0.3:
+        data['ai_anomaly'] = ai_prediction
+        data['ai_confidence'] = abs(st.session_state.ai_model.decision_function([features])[0])
+        
+        if ai_prediction == -1 and data['ai_confidence'] > 0.6:
+            data['ai_action'] = "PREEMPTIVE_MAINTENANCE"
+            if random.random() < 0.4:  # 40% шанс предотвращения инцидента
                 st.session_state.prevented_incidents += 1
-                st.session_state.cost_savings += 200000
+                st.session_state.cost_savings += 350000  # Высокая стоимость инцидентов на FPSO
         else:
-            data["ai_action"] = "MONITORING"
-    except:
-        data["ai_anomaly"] = 1
-        data["ai_action"] = "MONITORING"
-
+            data['ai_action'] = "OPERATIONAL"
+            
+    except Exception as e:
+        data['ai_anomaly'] = 1
+        data['ai_action'] = "SYSTEM_ERROR"
+    
     return data
 
-
 # =========================
-# VISUALS
+# REAL-TIME VISUALIZATIONS
 # =========================
-def hull_visualization(data):
-    length, width, height = 100, 20, 15
-    x = np.array([0, length, length, 0, 0, length, length, 0])
-    y = np.array([0, 0, width, width, 0, 0, width, width])
-    z = np.array([0, 0, 0, 0, height, height, height, height])
-
-    heel = np.radians(data["heel_angle"])
-    trim = np.radians(data["trim_angle"])
-    y_heel = y * np.cos(heel) - z * np.sin(heel)
-    z_heel = y * np.sin(heel) + z * np.cos(heel)
-    x_trim = x * np.cos(trim) - z_heel * np.sin(trim)
-    z_final = x * np.sin(trim) + z_heel * np.cos(trim)
-
+def create_operations_dashboard(data):
+    """Дашборд операций погрузки/отгрузки"""
     fig = go.Figure()
-    fig.add_trace(go.Mesh3d(
-        x=x_trim, y=y_heel, z=z_final,
-        color="lightblue", opacity=0.6, name="Hull"
+    
+    # Flow rates
+    fig.add_trace(go.Indicator(
+        mode="gauge+number+delta",
+        value=data['import_flow_rate'],
+        title={'text': "Import Flow Rate"},
+        domain={'x': [0, 0.45], 'y': [0.5, 1]},
+        gauge={'axis': {'range': [0, 5000]},
+               'bar': {'color': "green"},
+               'steps': [{'range': [0, 4000], 'color': "lightgray"}],
+               'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 4500}}
     ))
+    
+    fig.add_trace(go.Indicator(
+        mode="gauge+number+delta",
+        value=data['export_flow_rate'],
+        title={'text': "Export Flow Rate"},
+        domain={'x': [0.55, 1], 'y': [0.5, 1]},
+        gauge={'axis': {'range': [0, 5000]},
+               'bar': {'color': "blue"},
+               'steps': [{'range': [0, 4000], 'color': "lightgray"}],
+               'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 4500}}
+    ))
+    
+    # Cargo totals
+    fig.add_trace(go.Indicator(
+        mode="number",
+        value=data['total_cargo_loaded'],
+        title={'text': "Total Loaded (m³)"},
+        domain={'x': [0, 0.3], 'y': [0, 0.4]},
+        number={'valueformat': ",.0f"}
+    ))
+    
+    fig.add_trace(go.Indicator(
+        mode="number",
+        value=data['total_cargo_exported'],
+        title={'text': "Total Exported (m³)"},
+        domain={'x': [0.35, 0.65], 'y': [0, 0.4]},
+        number={'valueformat': ",.0f"}
+    ))
+    
+    fig.add_trace(go.Indicator(
+        mode="number",
+        value=data['total_cargo_loaded'] - data['total_cargo_exported'],
+        title={'text': "Current Cargo (m³)"},
+        domain={'x': [0.7, 1], 'y': [0, 0.4]},
+        number={'valueformat': ",.0f"}
+    ))
+    
+    fig.update_layout(height=300, title="Cargo Operations Dashboard")
+    return fig
 
+def create_pump_room_monitoring(data):
+    """Мониторинг насосного отделения"""
+    pumps = ['CargoPump_A', 'CargoPump_B', 'CargoPump_C', 'BallastPump_Port', 'BallastPump_Stbd']
+    
+    fig = go.Figure()
+    
+    # Vibration
+    fig.add_trace(go.Bar(
+        name='Vibration (mm/s)',
+        x=pumps,
+        y=[data[f'{p}_vib'] for p in pumps],
+        marker_color=['red' if data[f'{p}_vib'] > 2.5 else 'orange' if data[f'{p}_vib'] > 1.8 else 'green' for p in pumps],
+        text=[f"{data[f'{p}_vib']:.1f}" for p in pumps],
+        textposition='auto',
+        yaxis='y'
+    ))
+    
+    # Temperature
+    fig.add_trace(go.Scatter(
+        name='Temperature (°C)',
+        x=pumps,
+        y=[data[f'{p}_temp'] for p in pumps],
+        mode='lines+markers+text',
+        line=dict(color='orange', width=3),
+        marker=dict(size=10),
+        text=[f"{data[f'{p}_temp']:.0f}°C" for p in pumps],
+        textposition='top center',
+        yaxis='y2'
+    ))
+    
     fig.update_layout(
-        title=f"Hull Stress: {data['hull_stress']:.1f}%",
-        scene=dict(aspectmode="data"),
-        height=500
+        title="Pump Room Monitoring - Vibration & Temperature",
+        xaxis_title="Pumps",
+        yaxis_title="Vibration (mm/s)",
+        yaxis2=dict(
+            title="Temperature (°C)",
+            overlaying='y',
+            side='right'
+        ),
+        height=400
     )
+    
     return fig
-
-
-def equipment_vibration_chart(data, show_dampers=True):
-    eq = ["DG1", "DG2", "Pump1", "Pump2", "Pump3", "BallastP", "BallastS", "Boiler", "IG"]
-    vibrations = [data[f"{e}_vib"] for e in eq]
-
-    colors = ["red" if v > 3 else "orange" if v > 2 else "green" for v in vibrations]
-
-    fig = go.Figure(go.Bar(
-        x=eq, y=vibrations, marker_color=colors,
-        text=[f"{v:.1f}" for v in vibrations], textposition="auto"
-    ))
-
-    if show_dampers:
-        fig.add_hline(y=3, line_dash="dash", line_color="red", annotation_text="Critical")
-        fig.add_hline(y=2, line_dash="dot", line_color="orange", annotation_text="Warning")
-
-    fig.update_layout(title="Vibration Monitoring", height=350)
-    return fig
-
-
-def tank_temperature_chart(data):
-    cargo = [data[f"Cargo_{i}"] for i in range(1, 7)]
-    ballastP = [data[f"BallastP_{i}"] for i in range(1, 7)]
-    ballastS = [data[f"BallastS_{i}"] for i in range(1, 6)]
-    slop = [data["SlopP"], data["SlopS"], data["Forepeak"]]
-
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=[f"C{i}" for i in range(1, 7)], y=cargo, name="Cargo Tanks"))
-    fig.add_trace(go.Bar(x=[f"P{i}" for i in range(1, 7)], y=ballastP, name="Ballast Port"))
-    fig.add_trace(go.Bar(x=[f"S{i}" for i in range(1, 7)], y=ballastS, name="Ballast Stbd"))
-    fig.add_trace(go.Bar(x=["SlopP", "SlopS", "Forepeak"], y=slop, name="Special Tanks"))
-
-    fig.update_layout(barmode="group", title="Tank Temperatures / Levels", height=350)
-    return fig
-
 
 # =========================
-# MAIN APP
+# MAIN APPLICATION
 # =========================
 def main():
-    st.title("🌊 FPSO Spirit – AVCS DNA + Thermal DNA")
-    st.markdown("Digital Twin with **Hull, Equipment, Tanks, AI Anomaly Detection**")
+    st.title("🌊 FPSO Spirit - Real-time Process Monitoring")
+    st.markdown("**AVCS DNA + Thermal DNA Integrated with Yokogawa DCS**")
+    
+    # Initialize session state
+    if "system_data" not in st.session_state:
+        st.session_state.system_data = generate_realistic_fpso_data(0)
+    if "monitoring_active" not in st.session_state:
+        st.session_state.monitoring_active = False
+    if "cycle_count" not in st.session_state:
+        st.session_state.cycle_count = 0
 
-    # Sidebar Control
-    st.sidebar.header("⚙️ Control Panel")
-    speed = st.sidebar.slider("Animation Speed (s)", 0.1, 2.0, 1.0, 0.1)
-    dampers = st.sidebar.checkbox("Enable MR Dampers", value=True)
-    ai_enable = st.sidebar.checkbox("Enable AI Analysis", value=True)
-
-    if st.sidebar.button("▶️ Start Monitoring"):
+    # Control Panel
+    st.sidebar.header("⚙️ CCR Control Panel")
+    
+    if st.sidebar.button("▶️ Start Process Monitoring"):
         st.session_state.monitoring_active = True
-        st.session_state.last_update = datetime.now()
+        
     if st.sidebar.button("⏸️ Stop Monitoring"):
         st.session_state.monitoring_active = False
-    if st.sidebar.button("🛑 Emergency Stop"):
-        st.session_state.emergency_stop = True
-        st.session_state.monitoring_active = False
-    if st.sidebar.button("♻️ Reset"):
-        for k in ["cycle_count", "historical_data", "prevented_incidents", "cost_savings"]:
-            st.session_state[k] = 0
-        st.session_state.system_data = {}
-        st.session_state.emergency_stop = False
-        st.session_state.monitoring_active = False
-
-    # MAIN LOOP
-    if st.session_state.monitoring_active and not st.session_state.emergency_stop:
-        now = datetime.now()
-        if (now - st.session_state.last_update).total_seconds() > speed:
-            st.session_state.system_data = generate_sensor_data(st.session_state.cycle_count)
-            st.session_state.cycle_count += 1
-            st.session_state.last_update = now
-            st.session_state.historical_data.append(st.session_state.system_data.copy())
-            if len(st.session_state.historical_data) > 100:
-                st.session_state.historical_data.pop(0)
-            st.rerun()
-
-    # OUTPUT
-    if st.session_state.emergency_stop:
-        st.error("🚨 EMERGENCY STOP")
-        return
-
-    if st.session_state.system_data:
-        data = st.session_state.system_data
-        tabs = st.tabs(["Hull", "Equipment", "Tanks", "AI Dashboard"])
-
-        with tabs[0]:
-            st.plotly_chart(hull_visualization(data), use_container_width=True)
-
-        with tabs[1]:
-            st.plotly_chart(equipment_vibration_chart(data, dampers), use_container_width=True)
-
-        with tabs[2]:
-            st.plotly_chart(tank_temperature_chart(data), use_container_width=True)
-
-        with tabs[3]:
-            st.metric("AI Action", data["ai_action"])
-            st.metric("Prevented Incidents", st.session_state.prevented_incidents)
-            st.metric("Cost Savings", f"${st.session_state.cost_savings:,}")
-
+        
+    # Auto-update when monitoring is active
+    if st.session_state.monitoring_active:
+        st.session_state.cycle_count += 1
+        st.session_state.system_data = generate_realistic_fpso_data(st.session_state.cycle_count)
+        st.rerun()
+    
+    data = st.session_state.system_data
+    
+    # Operations Overview
+    st.subheader("📊 Operations Overview")
+    st.plotly_chart(create_operations_dashboard(data), use_container_width=True)
+    
+    # Equipment Monitoring
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("🏭 Pump Room Monitoring")
+        st.plotly_chart(create_pump_room_monitoring(data), use_container_width=True)
+        
+    with col2:
+        st.subheader("⚡ Power Generation")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.metric("DG1 Power", f"{data['DG1_power']:.0f} kW")
+            st.metric("DG1 Temp", f"{data['DG1_temp']:.0f}°C")
+        with col_b:
+            st.metric("DG2 Power", f"{data['DG2_power']:.0f} kW") 
+            st.metric("DG2 Temp", f"{data['DG2_temp']:.0f}°C")
+    
+    # AI Predictive Maintenance
+    st.subheader("🧠 AVCS DNA Predictive Analysis")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        status_color = "red" if data.get('ai_anomaly') == -1 else "green"
+        st.metric("AI Status", data.get('ai_action', 'OPERATIONAL'), delta="Anomaly Detected" if data.get('ai_anomaly') == -1 else "Normal")
+    
+    with col2:
+        st.metric("Prevented Incidents", st.session_state.get('prevented_incidents', 0))
+    
+    with col3:
+        st.metric("Cost Savings", f"${st.session_state.get('cost_savings', 0):,}")
 
 if __name__ == "__main__":
     main()
