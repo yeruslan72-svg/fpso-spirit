@@ -1,4 +1,3 @@
-# requirements.txt - МИНИМАЛЬНЫЕ ЗАВИСИМОСТИ
-streamlit==1.28.0
-numpy==1.24.3
-pandas==2.0.3
+# requirements.txt - ИСПРАВЛЕННАЯ ВЕРСИЯ
+streamlit>=1.28.0
+numpy>=1.24.3
