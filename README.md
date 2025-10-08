@@ -1,42 +1,45 @@
-# ⚓ FPSO SPIRIT - Professional CCR Simulator
+# 🏭 AVCS DNA v6.0 PRO - AI Stabilization System
 
-**Experience the Ultimate FPSO Control Room Simulation**
+**Active Vibration Control System with AI Failure Prediction**
 
-![FPSO SPIRIT](https://img.shields.io/badge/FPSO-SPIRIT-blue)
-![Version](https://img.shields.io/badge/Version-3.0-green)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.28-red)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![AI](https://img.shields.io/badge/AI-ML-orange?style=for-the-badge)
 
-## 🎯 Features That Create WOW Effect
+## 🚀 Live Demo
 
-### 🎛️ **Visual Masterpiece**
-- **Interactive System Diagrams** with Plotly
-- **Real-time Data Visualization** with beautiful charts
-- **Professional Color-Coded** status indicators
-- **Animated Progress Bars** and metrics
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-username-avcs-dna-app.streamlit.app/)
 
-### 🛢️ **Complete Operations Control**
-- **Cargo Tank Management** with level control
-- **Pump Control Center** with vibration monitoring
-- **Valve Operations** with visual feedback
-- **Ballast System** with stability visualization
+## 📖 Overview
 
-### 🌊 **Advanced Systems**
-- **Vessel Stability** with real-time heel/trim monitoring
-- **IGS System Control** with pressure management
-- **Power & Utilities** monitoring
-- **Safety Systems** with ESD controls
+AVCS DNA v6.0 PRO is an advanced AI-powered equipment monitoring and stabilization system that predicts failures 48+ hours in advance and provides active vibration suppression in real-time.
 
-### 🚨 **Professional Safety**
-- **3-Level ESD System** with automatic shutdown
-- **Fire & Gas Detection** simulation
-- **Emergency Procedures** with visual alerts
-- **Safety Monitoring** dashboard
+### 🎯 Key Features
 
-## 🚀 Quick Start
+- **🤖 AI Failure Prediction** - Machine learning algorithms predict equipment failures
+- **🎯 Active Vibration Control** - Real-time MR damper stabilization
+- **📊 Real-time Monitoring** - Live sensor data visualization
+- **⚠️ Early Warning System** - Alerts for abnormal conditions
+- **📈 RUL Prediction** - Remaining Useful Life estimation
+- **🔧 Fault Diagnosis** - Automatic fault detection and classification
 
-```bash
-# Clone and run
-git clone <repository>
-cd fpsospirit
-pip install -r requirements.txt
-streamlit run app.py
+## 🛠️ Technology Stack
+
+### Backend & AI
+- **Python 3.9+** - Core programming language
+- **Streamlit** - Web application framework
+- **Pandas & NumPy** - Data processing and analysis
+- **Plotly** - Interactive visualizations
+
+### AI & Machine Learning
+- **Custom ML Algorithms** - Equipment health analysis
+- **Real-time Analytics** - Vibration and temperature analysis
+- **Predictive Maintenance** - RUL (Remaining Useful Life) forecasting
+
+### Hardware Integration
+- **Vibration Sensors** - PCB 603C01 (4x units)
+- **Thermal Cameras** - FLIR A500f (2x units)  
+- **MR Dampers** - LORD RD-8040 (4x units)
+- **Industrial Controllers** - Beckhoff TwinCAT
+
+## 📊 System Architecture
