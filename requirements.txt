@@ -1,7 +1,6 @@
-# In terminal in project folder:
-echo "streamlit==1.28.0
-pandas==2.1.1
-numpy==1.24.3
-plotly==5.15.0
-requests==2.31.0
-websocket-client==1.6.1" > requirements.txt
+streamlit
+pandas
+numpy
+plotly
+requests
+websocket-client
