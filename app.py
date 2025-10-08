@@ -1,4 +1,4 @@
-# app.py - AVCS DNA v6.0 PRO (ALL IN ONE FILE - ENGLISH)
+# app.py - AVCS DNA v6.0 PRO (FIXED VERSION)
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -13,7 +13,7 @@ import json
 # =============================================================================
 
 class AVCSDNAEngine:
-    """AI Engine for analysis and stabilization - embedded directly in app.py"""
+    """AI Engine for analysis and stabilization"""
     
     def __init__(self):
         self.risk_history = []
@@ -65,19 +65,19 @@ class AVCSDNAEngine:
         # Determine damping force
         if risk_index >= 80:
             damper_force = 8000
-            status = "🔴 CRITICAL"
+            status = "CRITICAL"
             recommendation = "IMMEDIATE SHUTDOWN REQUIRED"
         elif risk_index >= 60:
             damper_force = 4000
-            status = "🟡 WARNING" 
+            status = "WARNING" 
             recommendation = "Schedule maintenance within 24 hours"
         elif risk_index >= 30:
             damper_force = 1000
-            status = "🟢 NORMAL"
+            status = "NORMAL"
             recommendation = "Increase monitoring frequency"
         else:
             damper_force = 500
-            status = "🔵 STANDBY"
+            status = "STANDBY"
             recommendation = "Normal operation"
             
         self.damper_forces.append(damper_force)
@@ -122,7 +122,7 @@ class AVCSDNAEngine:
         return faults
 
 # =============================================================================
-# MR DAMPER CONTROLLER - ALSO EMBEDDED
+# MR DAMPER CONTROLLER
 # =============================================================================
 
 class MRDamperController:
@@ -138,7 +138,6 @@ class MRDamperController:
         
     def apply_force_distribution(self, total_force, vibration_data):
         """Apply force distribution to dampers"""
-        # Simple distribution - complex logic in real implementation
         force_per_damper = total_force // 4
         
         for damper in self.dampers:
@@ -151,7 +150,7 @@ class MRDamperController:
         return self.dampers
 
 # =============================================================================
-# DATA SIMULATOR - IF EXTERNAL API IS UNAVAILABLE
+# DATA SIMULATOR
 # =============================================================================
 
 class DataSimulator:
@@ -166,16 +165,12 @@ class DataSimulator:
         
         # Gradual equipment degradation
         if self.cycle < 30:
-            # Normal operation
             degradation = 0
         elif self.cycle < 60:
-            # Initial degradation
             degradation = (self.cycle - 30) * 0.02
         elif self.cycle < 90:
-            # Serious degradation
             degradation = 0.6 + (self.cycle - 60) * 0.03
         else:
-            # Critical condition
             degradation = 1.5 + (self.cycle - 90) * 0.05
             
         data = {
@@ -227,7 +222,7 @@ def main():
     with col1:
         if st.button("🚀 Start System", type="primary", use_container_width=True):
             st.session_state.system_running = True
-            st.session_state.avcs_engine = AVCSDNAEngine()  # Reset on new start
+            st.session_state.avcs_engine = AVCSDNAEngine()
             st.rerun()
             
     with col2:
@@ -311,35 +306,30 @@ def main():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        # Risk Index with color coding
-        risk_color = "green" if analysis['risk_index'] < 50 else "orange" if analysis['risk_index'] < 80 else "red"
-        st.metric(
-            "🎯 Risk Index", 
-            f"{analysis['risk_index']:.1f}/100",
-            delta=analysis['status'],
-            delta_color=risk_color
-        )
+        # Risk Index - FIXED: No delta_color parameter
+        risk_value = f"{analysis['risk_index']:.1f}/100"
+        if analysis['risk_index'] >= 80:
+            st.error(f"🔴 Risk Index: {risk_value}")
+        elif analysis['risk_index'] >= 60:
+            st.warning(f"🟡 Risk Index: {risk_value}")
+        else:
+            st.success(f"🟢 Risk Index: {risk_value}")
     
     with col2:
         # Remaining Useful Life
-        rul_color = "green" if analysis['rul_hours'] > 168 else "orange" if analysis['rul_hours'] > 72 else "red"
-        st.metric(
-            "⏳ Remaining Useful Life (RUL)",
-            f"{analysis['rul_hours']} hours",
-            delta_color=rul_color
-        )
+        rul_value = f"{analysis['rul_hours']} hours"
+        if analysis['rul_hours'] <= 72:
+            st.error(f"🔴 RUL: {rul_value}")
+        elif analysis['rul_hours'] <= 168:
+            st.warning(f"🟡 RUL: {rul_value}")
+        else:
+            st.success(f"🟢 RUL: {rul_value}")
     
     with col3:
-        st.metric(
-            "🔧 Damping Force", 
-            f"{analysis['damper_force']} N"
-        )
+        st.metric("🔧 Damping Force", f"{analysis['damper_force']} N")
     
     with col4:
-        st.metric(
-            "🌡️ Max Temperature",
-            f"{analysis['max_temperature']} °C"
-        )
+        st.metric("🌡️ Max Temperature", f"{analysis['max_temperature']} °C")
     
     # ROW 2: DAMPER SYSTEM
     st.subheader("🔧 MR Damper System")
@@ -386,12 +376,13 @@ def main():
         if analysis['faults']:
             for fault, probability in analysis['faults'].items():
                 prob_percent = probability * 100
+                fault_name = fault.replace('_', ' ').title()
                 if prob_percent > 70:
-                    st.error(f"🔴 {fault.replace('_', ' ').title()}: {prob_percent:.1f}%")
+                    st.error(f"🔴 {fault_name}: {prob_percent:.1f}%")
                 elif prob_percent > 40:
-                    st.warning(f"🟡 {fault.replace('_', ' ').title()}: {prob_percent:.1f}%")
+                    st.warning(f"🟡 {fault_name}: {prob_percent:.1f}%")
                 else:
-                    st.info(f"🔵 {fault.replace('_', ' ').title()}: {prob_percent:.1f}%")
+                    st.info(f"🔵 {fault_name}: {prob_percent:.1f}%")
         else:
             st.success("✅ No critical faults detected")
     
@@ -419,8 +410,19 @@ def main():
         with sensor_cols[i]:
             st.metric(name, value)
     
+    # System status display
+    st.subheader("📋 System Status Summary")
+    status_col1, status_col2, status_col3 = st.columns(3)
+    
+    with status_col1:
+        st.write(f"**Current Status:** {analysis['status']}")
+    with status_col2:
+        st.write(f"**Cycle:** {st.session_state.data_simulator.cycle}")
+    with status_col3:
+        st.write(f"**Last Update:** {datetime.now().strftime('%H:%M:%S')}")
+    
     # Auto-refresh
-    time.sleep(1)
+    time.sleep(2)
     st.rerun()
 
 if __name__ == "__main__":
