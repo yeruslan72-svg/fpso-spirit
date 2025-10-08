@@ -1,4 +1,4 @@
-# app.py - AVCS DNA v6.0 PRO (FIXED VERSION)
+# app.py - AVCS DNA v6.0 PRO (REAL-TIME VERSION)
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,6 +7,9 @@ from datetime import datetime
 import time
 import requests
 import json
+import websocket
+import threading
+import queue
 
 # =============================================================================
 # AI ENGINE - EMBEDDED DIRECTLY IN THE FILE
@@ -150,7 +153,7 @@ class MRDamperController:
         return self.dampers
 
 # =============================================================================
-# DATA SIMULATOR
+# DATA SIMULATOR (FALLBACK)
 # =============================================================================
 
 class DataSimulator:
@@ -192,6 +195,131 @@ class DataSimulator:
         return data
 
 # =============================================================================
+# REAL DATA PROVIDERS
+# =============================================================================
+
+class RealDataProvider:
+    """Получение реальных данных с API"""
+    
+    def __init__(self, base_url="http://localhost:8081/api/latest"):
+        self.base_url = base_url
+        self.api_available = False
+        self.test_connection()
+    
+    def test_connection(self):
+        """Проверка подключения к API"""
+        try:
+            response = requests.get(self.base_url, timeout=5)
+            if response.status_code == 200:
+                self.api_available = True
+                return True
+            else:
+                return False
+        except:
+            return False
+    
+    def get_sensor_data(self):
+        """Получение данных с API"""
+        if not self.api_available:
+            return self.get_fallback_data()
+        
+        try:
+            response = requests.get(self.base_url, timeout=2)
+            if response.status_code == 200:
+                api_data = response.json()
+                return self.transform_api_data(api_data)
+            else:
+                return self.get_fallback_data()
+        except:
+            return self.get_fallback_data()
+    
+    def transform_api_data(self, api_data):
+        """Трансформация данных API в формат приложения"""
+        # Адаптируйте под структуру вашего JSON!
+        transformed = {
+            'VIB_PUMP_A_X': api_data.get('vibrationX', api_data.get('vib_x', 1.0)),
+            'VIB_PUMP_A_Y': api_data.get('vibrationY', api_data.get('vib_y', 1.0)),
+            'VIB_PUMP_B_X': api_data.get('vibrationX2', api_data.get('vib_x2', 1.0)),
+            'VIB_PUMP_B_Y': api_data.get('vibrationY2', api_data.get('vib_y2', 1.0)),
+            'TEMP_PUMP_A': api_data.get('temperature', api_data.get('temp', 65)),
+            'TEMP_MOTOR_A': api_data.get('motorTemp', api_data.get('motor_temp', 60)),
+            'RPM_PUMP_A': api_data.get('rpm', api_data.get('RPM', 2900)),
+            'PRESS_MAIN_LINE': api_data.get('pressure', api_data.get('press', 7.0)),
+            'timestamp': datetime.now().isoformat(),
+            'source': 'API'
+        }
+        return transformed
+    
+    def get_fallback_data(self):
+        """Резервные данные если API недоступно"""
+        simulator = DataSimulator()
+        data = simulator.generate_sensor_data()
+        data['source'] = 'SIMULATOR'
+        return data
+
+class WebSocketClient:
+    """WebSocket клиент для реального-времени данных"""
+    
+    def __init__(self, ws_url="ws://localhost:8081/ws/data"):
+        self.ws_url = ws_url
+        self.data_queue = queue.Queue()
+        self.connected = False
+        self.ws = None
+        self.thread = None
+    
+    def on_message(self, ws, message):
+        """Обработка входящих сообщений"""
+        try:
+            data = json.loads(message)
+            self.data_queue.put(data)
+        except Exception as e:
+            print(f"WebSocket parse error: {e}")
+    
+    def on_error(self, ws, error):
+        """Обработка ошибок"""
+        print(f"WebSocket error: {error}")
+        self.connected = False
+    
+    def on_close(self, ws, close_status_code, close_msg):
+        """Обработка закрытия соединения"""
+        print("WebSocket connection closed")
+        self.connected = False
+    
+    def on_open(self, ws):
+        """Обработка открытия соединения"""
+        print("WebSocket connection opened")
+        self.connected = True
+    
+    def start(self):
+        """Запуск WebSocket клиента"""
+        def run():
+            self.ws = websocket.WebSocketApp(
+                self.ws_url,
+                on_message=self.on_message,
+                on_error=self.on_error,
+                on_close=self.on_close,
+                on_open=self.on_open
+            )
+            self.ws.run_forever()
+        
+        self.thread = threading.Thread(target=run)
+        self.thread.daemon = True
+        self.thread.start()
+    
+    def get_latest_data(self):
+        """Получение последних данных из очереди"""
+        try:
+            return self.data_queue.get_nowait()
+        except queue.Empty:
+            return None
+    
+    def stop(self):
+        """Остановка WebSocket клиента"""
+        if self.ws:
+            self.ws.close()
+        self.connected = False
+
+# =============================================================================
 # MAIN STREAMLIT APP
 # =============================================================================
 
@@ -209,9 +337,11 @@ def main():
     if 'avcs_engine' not in st.session_state:
         st.session_state.avcs_engine = AVCSDNAEngine()
         st.session_state.damper_controller = MRDamperController()
-        st.session_state.data_simulator = DataSimulator()
+        st.session_state.data_provider = RealDataProvider()
+        st.session_state.ws_client = WebSocketClient()
         st.session_state.system_running = False
         st.session_state.analysis_history = []
+        st.session_state.data_source = "API REST"
     
     # =========================================================================
     # SIDEBAR - CONTROL PANEL
@@ -223,21 +353,46 @@ def main():
         if st.button("🚀 Start System", type="primary", use_container_width=True):
             st.session_state.system_running = True
             st.session_state.avcs_engine = AVCSDNAEngine()
+            # Запускаем WebSocket при старте системы
+            st.session_state.ws_client.start()
             st.rerun()
             
     with col2:
         if st.button("🛑 Emergency Stop", use_container_width=True):
             st.session_state.system_running = False
+            st.session_state.ws_client.stop()
             st.rerun()
     
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📊 System Status")
+    st.sidebar.subheader("📡 Data Source Configuration")
     
-    if st.session_state.system_running:
-        st.sidebar.success("✅ System Active")
-        st.sidebar.info("🔄 Processing real-time data")
-    else:
-        st.sidebar.warning("⏸️ System Stopped")
+    # Выбор источника данных
+    data_source = st.sidebar.radio(
+        "Select data source:",
+        ["API REST", "WebSocket", "Simulator"],
+        index=0
+    )
+    
+    st.session_state.data_source = data_source
+    
+    # Индикатор статуса подключения
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📊 Connection Status")
+    
+    if data_source == "WebSocket":
+        if st.session_state.ws_client.connected:
+            st.sidebar.success("✅ WebSocket Connected")
+        else:
+            st.sidebar.warning("⚠️ WebSocket Disconnected")
+    
+    elif data_source == "API REST":
+        if st.session_state.data_provider.api_available:
+            st.sidebar.success("✅ API Connected")
+        else:
+            st.sidebar.warning("⚠️ API Unavailable")
+    
+    else:  # Simulator
+        st.sidebar.info("🔧 Using Simulated Data")
     
     st.sidebar.markdown("---")
     st.sidebar.subheader("🏭 System Architecture")
@@ -245,12 +400,6 @@ def main():
     st.sidebar.write("• 2x Thermal Sensors (FLIR A500f)")
     st.sidebar.write("• 4x MR Dampers (LORD RD-8040)")
     st.sidebar.write("• AI: Risk Analysis + RUL Prediction")
-    
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("💰 Business Case")
-    st.sidebar.metric("System Cost", "$250,000")
-    st.sidebar.metric("Typical ROI", ">2000%")
-    st.sidebar.metric("Payback Period", "<3 months")
     
     # =========================================================================
     # MAIN INTERFACE
@@ -278,8 +427,28 @@ def main():
             - **Sensors**: PCB Piezotronics + FLIR Thermal
             - **Dampers**: LORD MR Technology
             - **Controller**: Beckhoff TwinCAT
-            - **Integration**: OPC-UA + REST API
+            - **Integration**: OPC-UA + REST API + WebSocket
             """)
+        
+        # Тестирование подключения
+        st.subheader("🔌 Connection Test")
+        col_test1, col_test2 = st.columns(2)
+        
+        with col_test1:
+            if st.button("Test API Connection"):
+                if st.session_state.data_provider.test_connection():
+                    st.success("✅ API connection successful!")
+                else:
+                    st.error("❌ API connection failed")
+        
+        with col_test2:
+            if st.button("Test WebSocket"):
+                st.session_state.ws_client.start()
+                time.sleep(2)
+                if st.session_state.ws_client.connected:
+                    st.success("✅ WebSocket connection successful!")
+                else:
+                    st.error("❌ WebSocket connection failed")
         
         return
     
@@ -287,8 +456,33 @@ def main():
     # REAL-TIME MONITORING
     # =========================================================================
     
-    # Data acquisition and analysis
-    sensor_data = st.session_state.data_simulator.generate_sensor_data()
+    # Получение данных в зависимости от источника
+    sensor_data = None
+    
+    if st.session_state.data_source == "WebSocket":
+        # Данные из WebSocket
+        ws_data = st.session_state.ws_client.get_latest_data()
+        if ws_data:
+            sensor_data = st.session_state.data_provider.transform_api_data(ws_data)
+            sensor_data['source'] = 'WEBSOCKET'
+        else:
+            # Если нет новых данных WebSocket, используем API как fallback
+            sensor_data = st.session_state.data_provider.get_sensor_data()
+            
+    elif st.session_state.data_source == "API REST":
+        # Данные из REST API
+        sensor_data = st.session_state.data_provider.get_sensor_data()
+        
+    else:  # Simulator
+        sensor_data = DataSimulator().generate_sensor_data()
+        sensor_data['source'] = 'SIMULATOR'
+    
+    # Если все источники недоступны, используем симулятор
+    if sensor_data is None:
+        sensor_data = DataSimulator().generate_sensor_data()
+        sensor_data['source'] = 'SIMULATOR_FALLBACK'
+    
+    # Анализ данных
     analysis = st.session_state.avcs_engine.analyze_equipment_health(sensor_data)
     st.session_state.analysis_history.append(analysis)
     
@@ -306,24 +500,24 @@ def main():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        # Risk Index - FIXED: No delta_color parameter
-        risk_value = f"{analysis['risk_index']:.1f}/100"
-        if analysis['risk_index'] >= 80:
-            st.error(f"🔴 Risk Index: {risk_value}")
-        elif analysis['risk_index'] >= 60:
-            st.warning(f"🟡 Risk Index: {risk_value}")
+        # Risk Index
+        risk_value = analysis['risk_index']
+        if risk_value >= 80:
+            st.error(f"🔴 Risk Index: {risk_value:.1f}/100")
+        elif risk_value >= 60:
+            st.warning(f"🟡 Risk Index: {risk_value:.1f}/100")
         else:
-            st.success(f"🟢 Risk Index: {risk_value}")
+            st.success(f"🟢 Risk Index: {risk_value:.1f}/100")
     
     with col2:
         # Remaining Useful Life
-        rul_value = f"{analysis['rul_hours']} hours"
-        if analysis['rul_hours'] <= 72:
-            st.error(f"🔴 RUL: {rul_value}")
-        elif analysis['rul_hours'] <= 168:
-            st.warning(f"🟡 RUL: {rul_value}")
+        rul_value = analysis['rul_hours']
+        if rul_value <= 72:
+            st.error(f"🔴 RUL: {rul_value} hours")
+        elif rul_value <= 168:
+            st.warning(f"🟡 RUL: {rul_value} hours")
         else:
-            st.success(f"🟢 RUL: {rul_value}")
+            st.success(f"🟢 RUL: {rul_value} hours")
     
     with col3:
         st.metric("🔧 Damping Force", f"{analysis['damper_force']} N")
@@ -412,17 +606,26 @@ def main():
     
     # System status display
     st.subheader("📋 System Status Summary")
-    status_col1, status_col2, status_col3 = st.columns(3)
+    status_col1, status_col2, status_col3, status_col4 = st.columns(4)
     
     with status_col1:
         st.write(f"**Current Status:** {analysis['status']}")
     with status_col2:
-        st.write(f"**Cycle:** {st.session_state.data_simulator.cycle}")
+        st.write(f"**Data Source:** {sensor_data.get('source', 'UNKNOWN')}")
     with status_col3:
+        st.write(f"**Cycles:** {len(st.session_state.analysis_history)}")
+    with status_col4:
         st.write(f"**Last Update:** {datetime.now().strftime('%H:%M:%S')}")
     
+    # Debug information
+    with st.expander("🔧 Debug Information"):
+        st.write("**Sensor Data:**", sensor_data)
+        st.write("**Analysis:**", analysis)
+        st.write("**WebSocket Connected:**", st.session_state.ws_client.connected)
+        st.write("**API Available:**", st.session_state.data_provider.api_available)
+    
     # Auto-refresh
-    time.sleep(2)
+    time.sleep(1)
     st.rerun()
 
 if __name__ == "__main__":
