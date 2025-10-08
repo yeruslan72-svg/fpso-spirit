@@ -1,4 +1,4 @@
-# app.py - AVCS DNA v6.0 PRO (ВСЕ В ОДНОМ ФАЙЛЕ)
+# app.py - AVCS DNA v6.0 PRO (ALL IN ONE FILE - ENGLISH)
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -9,11 +9,11 @@ import requests
 import json
 
 # =============================================================================
-# AI ENGINE - ВСТРАИВАЕМ ПРЯМО В ФАЙЛ
+# AI ENGINE - EMBEDDED DIRECTLY IN THE FILE
 # =============================================================================
 
 class AVCSDNAEngine:
-    """AI движок для анализа и стабилизации - встроен прямо в app.py"""
+    """AI Engine for analysis and stabilization - embedded directly in app.py"""
     
     def __init__(self):
         self.risk_history = []
@@ -22,8 +22,8 @@ class AVCSDNAEngine:
         self.temperature_history = []
         
     def analyze_equipment_health(self, sensor_data):
-        """Основной AI анализ состояния оборудования"""
-        # Анализ вибрации
+        """Main AI analysis of equipment condition"""
+        # Vibration analysis
         vib_signals = [
             sensor_data.get('VIB_PUMP_A_X', 0),
             sensor_data.get('VIB_PUMP_A_Y', 0), 
@@ -31,58 +31,58 @@ class AVCSDNAEngine:
             sensor_data.get('VIB_PUMP_B_Y', 0)
         ]
         
-        # Анализ температуры
+        # Temperature analysis
         temps = [
             sensor_data.get('TEMP_PUMP_A', 0),
             sensor_data.get('TEMP_MOTOR_A', 0)
         ]
         
-        # Расчет RMS вибрации
+        # Calculate RMS vibration
         rms_vibration = np.sqrt(np.mean(np.square(vib_signals)))
         max_temperature = max(temps)
         
-        # Индекс риска на основе вибрации и температуры
+        # Risk index based on vibration and temperature
         vib_risk = min(100, rms_vibration * 15)
         temp_risk = min(100, max(0, max_temperature - 60) * 2)
         
         risk_index = (vib_risk * 0.6 + temp_risk * 0.4)
         
-        # Сохраняем историю
+        # Save history
         self.risk_history.append(risk_index)
         self.vibration_history.append(rms_vibration)
         self.temperature_history.append(max_temperature)
         
-        # Прогноз остаточного ресурса (RUL)
+        # Remaining Useful Life (RUL) prediction
         if risk_index < 30:
-            rul_hours = 720  # 30 дней
+            rul_hours = 720  # 30 days
         elif risk_index < 60:
-            rul_hours = 240  # 10 дней
+            rul_hours = 240  # 10 days
         elif risk_index < 80:
-            rul_hours = 72   # 3 дня
+            rul_hours = 72   # 3 days
         else:
-            rul_hours = 24   # 1 день
+            rul_hours = 24   # 1 day
             
-        # Определение силы демпфирования
+        # Determine damping force
         if risk_index >= 80:
             damper_force = 8000
             status = "🔴 CRITICAL"
-            recommendation = "НЕМЕДЛЕННАЯ ОСТАНОВКА"
+            recommendation = "IMMEDIATE SHUTDOWN REQUIRED"
         elif risk_index >= 60:
             damper_force = 4000
             status = "🟡 WARNING" 
-            recommendation = "Плановый ремонт в течение 24 часов"
+            recommendation = "Schedule maintenance within 24 hours"
         elif risk_index >= 30:
             damper_force = 1000
             status = "🟢 NORMAL"
-            recommendation = "Усилить мониторинг"
+            recommendation = "Increase monitoring frequency"
         else:
             damper_force = 500
             status = "🔵 STANDBY"
-            recommendation = "Нормальная работа"
+            recommendation = "Normal operation"
             
         self.damper_forces.append(damper_force)
         
-        # Диагностика неисправностей
+        # Fault diagnosis
         faults = self._diagnose_faults(vib_signals, temps, sensor_data.get('RPM_PUMP_A', 0))
         
         return {
@@ -98,35 +98,35 @@ class AVCSDNAEngine:
         }
     
     def _diagnose_faults(self, vib_signals, temps, rpm):
-        """Диагностика конкретных неисправностей"""
+        """Diagnose specific equipment faults"""
         faults = {}
         
-        # Диагностика повреждения подшипников
+        # Bearing damage diagnosis
         peak_vibration = max(vib_signals)
         if peak_vibration > 5.0:
             faults['bearing_damage'] = min(1.0, (peak_vibration - 5.0) / 3.0)
         
-        # Диагностика misalignment
+        # Misalignment diagnosis
         vib_diff = abs(vib_signals[0] - vib_signals[1])
         if vib_diff > 2.0:
             faults['misalignment'] = min(1.0, vib_diff / 4.0)
             
-        # Диагностика дисбаланса
+        # Imbalance diagnosis
         if rpm > 2950 or rpm < 2850:
             faults['imbalance'] = min(1.0, abs(rpm - 2900) / 100.0)
             
-        # Диагностика перегрева
+        # Overheating diagnosis
         if max(temps) > 85:
             faults['overheating'] = min(1.0, (max(temps) - 85) / 20.0)
             
         return faults
 
 # =============================================================================
-# MR DAMPER CONTROLLER - ТАКЖЕ ВСТРАИВАЕМ
+# MR DAMPER CONTROLLER - ALSO EMBEDDED
 # =============================================================================
 
 class MRDamperController:
-    """Контроллер MR демпферов"""
+    """MR Damper Controller"""
     
     def __init__(self):
         self.dampers = {
@@ -137,8 +137,8 @@ class MRDamperController:
         }
         
     def apply_force_distribution(self, total_force, vibration_data):
-        """Применение распределения силы к демпферам"""
-        # Простое распределение - в реальности будет сложная логика
+        """Apply force distribution to dampers"""
+        # Simple distribution - complex logic in real implementation
         force_per_damper = total_force // 4
         
         for damper in self.dampers:
@@ -147,35 +147,35 @@ class MRDamperController:
         return self.dampers
     
     def get_damper_status(self):
-        """Получение статуса демпферов"""
+        """Get damper status"""
         return self.dampers
 
 # =============================================================================
-# DATA SIMULATOR - ЕСЛИ ВНЕШНИЙ API НЕДОСТУПЕН
+# DATA SIMULATOR - IF EXTERNAL API IS UNAVAILABLE
 # =============================================================================
 
 class DataSimulator:
-    """Генератор реалистичных данных оборудования"""
+    """Realistic equipment data generator"""
     
     def __init__(self):
         self.cycle = 0
         
     def generate_sensor_data(self):
-        """Генерация данных сенсоров"""
+        """Generate sensor data"""
         self.cycle += 1
         
-        # Постепенная деградация оборудования
+        # Gradual equipment degradation
         if self.cycle < 30:
-            # Нормальная работа
+            # Normal operation
             degradation = 0
         elif self.cycle < 60:
-            # Начальная деградация
+            # Initial degradation
             degradation = (self.cycle - 30) * 0.02
         elif self.cycle < 90:
-            # Серьезная деградация
+            # Serious degradation
             degradation = 0.6 + (self.cycle - 60) * 0.03
         else:
-            # Критическое состояние
+            # Critical condition
             degradation = 1.5 + (self.cycle - 90) * 0.05
             
         data = {
@@ -190,7 +190,7 @@ class DataSimulator:
             'timestamp': datetime.now().isoformat()
         }
         
-        # Ограничение значений
+        # Value constraints
         data['VIB_PUMP_A_X'] = max(0.1, min(10.0, data['VIB_PUMP_A_X']))
         data['TEMP_PUMP_A'] = max(20, min(120, data['TEMP_PUMP_A']))
         
@@ -207,10 +207,10 @@ def main():
         layout="wide"
     )
     
-    st.title("🏭 AVCS DNA v6.0 PRO - AI Система Стабилизации")
-    st.markdown("**Active Vibration Control System с AI-прогнозированием отказов**")
+    st.title("🏭 AVCS DNA v6.0 PRO - AI Stabilization System")
+    st.markdown("**Active Vibration Control System with AI Failure Prediction**")
     
-    # Инициализация сессии
+    # Session initialization
     if 'avcs_engine' not in st.session_state:
         st.session_state.avcs_engine = AVCSDNAEngine()
         st.session_state.damper_controller = MRDamperController()
@@ -219,184 +219,184 @@ def main():
         st.session_state.analysis_history = []
     
     # =========================================================================
-    # SIDEBAR - ПАНЕЛЬ УПРАВЛЕНИЯ
+    # SIDEBAR - CONTROL PANEL
     # =========================================================================
-    st.sidebar.header("🎛️ Панель управления AVCS DNA")
+    st.sidebar.header("🎛️ AVCS DNA Control Panel")
     
     col1, col2 = st.sidebar.columns(2)
     with col1:
-        if st.button("🚀 Запуск системы", type="primary", use_container_width=True):
+        if st.button("🚀 Start System", type="primary", use_container_width=True):
             st.session_state.system_running = True
-            st.session_state.avcs_engine = AVCSDNAEngine()  # Сброс при новом запуске
+            st.session_state.avcs_engine = AVCSDNAEngine()  # Reset on new start
             st.rerun()
             
     with col2:
-        if st.button("🛑 Остановка", use_container_width=True):
+        if st.button("🛑 Emergency Stop", use_container_width=True):
             st.session_state.system_running = False
             st.rerun()
     
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📊 Статус системы")
+    st.sidebar.subheader("📊 System Status")
     
     if st.session_state.system_running:
-        st.sidebar.success("✅ Система активна")
-        st.sidebar.info("🔄 Данные обрабатываются в реальном времени")
+        st.sidebar.success("✅ System Active")
+        st.sidebar.info("🔄 Processing real-time data")
     else:
-        st.sidebar.warning("⏸️ Система остановлена")
+        st.sidebar.warning("⏸️ System Stopped")
     
     st.sidebar.markdown("---")
-    st.sidebar.subheader("🏭 Системная архитектура")
-    st.sidebar.write("• 4x Датчики вибрации (PCB 603C01)")
-    st.sidebar.write("• 2x Термопары (FLIR A500f)")
-    st.sidebar.write("• 4x MR демпферы (LORD RD-8040)")
-    st.sidebar.write("• AI: Анализ рисков + Прогноз RUL")
+    st.sidebar.subheader("🏭 System Architecture")
+    st.sidebar.write("• 4x Vibration Sensors (PCB 603C01)")
+    st.sidebar.write("• 2x Thermal Sensors (FLIR A500f)")
+    st.sidebar.write("• 4x MR Dampers (LORD RD-8040)")
+    st.sidebar.write("• AI: Risk Analysis + RUL Prediction")
     
     st.sidebar.markdown("---")
-    st.sidebar.subheader("💰 Бизнес-кейс")
-    st.sidebar.metric("Стоимость системы", "$250,000")
-    st.sidebar.metric("Типичный ROI", ">2000%")
-    st.sidebar.metric("Окупаемость", "<3 месяцев")
+    st.sidebar.subheader("💰 Business Case")
+    st.sidebar.metric("System Cost", "$250,000")
+    st.sidebar.metric("Typical ROI", ">2000%")
+    st.sidebar.metric("Payback Period", "<3 months")
     
     # =========================================================================
-    # MAIN INTERFACE - ОСНОВНОЙ ИНТЕРФЕЙС
+    # MAIN INTERFACE
     # =========================================================================
     
     if not st.session_state.system_running:
-        # Экран ожидания
-        st.info("🚀 **Готов к работе** - Нажмите 'Запуск системы' для начала мониторинга")
+        # Welcome screen
+        st.info("🚀 **System Ready** - Click 'Start System' to begin monitoring")
         
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("🎯 Преимущества AVCS DNA")
+            st.subheader("🎯 AVCS DNA Advantages")
             st.write("""
-            - **AI-прогнозирование** отказов за 48+ часов
-            - **Активное подавление** вибраций в реальном времени  
-            - **Автоматическая стабилизация** оборудования
-            - **Гарантированный ROI** >2000%
-            - **Предотвращение** непредвиденных простоев
+            - **AI Failure Prediction** 48+ hours in advance
+            - **Active Vibration Suppression** in real-time  
+            - **Automatic Equipment Stabilization**
+            - **Guaranteed ROI** >2000%
+            - **Prevention** of unplanned downtime
             """)
             
         with col2:
-            st.subheader("📈 Технологический стек")
+            st.subheader("📈 Technology Stack")
             st.write("""
-            - **ML алгоритмы**: Isolation Forest + Gradient Boosting
-            - **Сенсоры**: PCB Piezotronics + FLIR Thermal
-            - **Демпферы**: LORD MR технология
-            - **Контроллер**: Beckhoff TwinCAT
-            - **Интеграция**: OPC-UA + REST API
+            - **ML Algorithms**: Isolation Forest + Gradient Boosting
+            - **Sensors**: PCB Piezotronics + FLIR Thermal
+            - **Dampers**: LORD MR Technology
+            - **Controller**: Beckhoff TwinCAT
+            - **Integration**: OPC-UA + REST API
             """)
         
         return
     
     # =========================================================================
-    # REAL-TIME MONITORING - РЕАЛЬНЫЙ МОНИТОРИНГ
+    # REAL-TIME MONITORING
     # =========================================================================
     
-    # Получение и анализ данных
+    # Data acquisition and analysis
     sensor_data = st.session_state.data_simulator.generate_sensor_data()
     analysis = st.session_state.avcs_engine.analyze_equipment_health(sensor_data)
     st.session_state.analysis_history.append(analysis)
     
-    # Применение управления демпферами
+    # Damper control application
     damper_status = st.session_state.damper_controller.apply_force_distribution(
         analysis['damper_force'], sensor_data
     )
     
     # =========================================================================
-    # MAIN DASHBOARD - ОСНОВНОЙ ДАШБОРД
+    # MAIN DASHBOARD
     # =========================================================================
     
-    # РЯД 1: ОСНОВНЫЕ МЕТРИКИ
-    st.subheader("📊 Основные показатели системы")
+    # ROW 1: KEY METRICS
+    st.subheader("📊 System Key Metrics")
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        # Индекс риска с цветовой индикацией
+        # Risk Index with color coding
         risk_color = "green" if analysis['risk_index'] < 50 else "orange" if analysis['risk_index'] < 80 else "red"
         st.metric(
-            "🎯 Индекс риска", 
+            "🎯 Risk Index", 
             f"{analysis['risk_index']:.1f}/100",
             delta=analysis['status'],
             delta_color=risk_color
         )
     
     with col2:
-        # Остаточный ресурс
+        # Remaining Useful Life
         rul_color = "green" if analysis['rul_hours'] > 168 else "orange" if analysis['rul_hours'] > 72 else "red"
         st.metric(
-            "⏳ Остаточный ресурс (RUL)",
-            f"{analysis['rul_hours']} часов",
+            "⏳ Remaining Useful Life (RUL)",
+            f"{analysis['rul_hours']} hours",
             delta_color=rul_color
         )
     
     with col3:
         st.metric(
-            "🔧 Сила демпфирования", 
+            "🔧 Damping Force", 
             f"{analysis['damper_force']} N"
         )
     
     with col4:
         st.metric(
-            "🌡️ Макс. температура",
+            "🌡️ Max Temperature",
             f"{analysis['max_temperature']} °C"
         )
     
-    # РЯД 2: СИСТЕМА ДЕМПФЕРОВ
-    st.subheader("🔧 Система MR-Демпферов")
+    # ROW 2: DAMPER SYSTEM
+    st.subheader("🔧 MR Damper System")
     damper_cols = st.columns(4)
     
     for i, (position, status) in enumerate(damper_status.items()):
         with damper_cols[i]:
             force = status['force']
             if force >= 2000:
-                st.error(f"🔴 {position}\n**{force} N**\n*Критический режим*")
+                st.error(f"🔴 {position}\n**{force} N**\n*Critical Mode*")
             elif force >= 250:
-                st.warning(f"🟡 {position}\n**{force} N**\n*Активный режим*")
+                st.warning(f"🟡 {position}\n**{force} N**\n*Active Mode*")
             else:
-                st.success(f"🟢 {position}\n**{force} N**\n*Дежурный режим*")
+                st.success(f"🟢 {position}\n**{force} N**\n*Standby Mode*")
     
-    # РЯД 3: ГРАФИКИ И ВИЗУАЛИЗАЦИЯ
+    # ROW 3: CHARTS AND VISUALIZATION
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("📈 Динамика индекса риска")
+        st.subheader("📈 Risk Index Trend")
         if len(st.session_state.avcs_engine.risk_history) > 1:
             risk_df = pd.DataFrame({
-                'Индекс риска': st.session_state.avcs_engine.risk_history,
-                'Критический порог': [80] * len(st.session_state.avcs_engine.risk_history),
-                'Порог предупреждения': [50] * len(st.session_state.avcs_engine.risk_history)
+                'Risk Index': st.session_state.avcs_engine.risk_history,
+                'Critical Threshold': [80] * len(st.session_state.avcs_engine.risk_history),
+                'Warning Threshold': [50] * len(st.session_state.avcs_engine.risk_history)
             })
             st.line_chart(risk_df)
     
     with col2:
-        st.subheader("⚡ История силы демпфирования")
+        st.subheader("⚡ Damping Force History")
         if len(st.session_state.avcs_engine.damper_forces) > 1:
             force_df = pd.DataFrame({
-                'Сила демпферов (N)': st.session_state.avcs_engine.damper_forces
+                'Damper Force (N)': st.session_state.avcs_engine.damper_forces
             })
             st.line_chart(force_df)
     
-    # РЯД 4: ДИАГНОСТИКА И РЕКОМЕНДАЦИИ
-    st.subheader("🔍 AI Диагностика оборудования")
+    # ROW 4: DIAGNOSTICS AND RECOMMENDATIONS
+    st.subheader("🔍 AI Equipment Diagnostics")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.write("**📋 Обнаруженные неисправности:**")
+        st.write("**📋 Detected Faults:**")
         if analysis['faults']:
             for fault, probability in analysis['faults'].items():
                 prob_percent = probability * 100
                 if prob_percent > 70:
-                    st.error(f"🔴 {fault}: {prob_percent:.1f}%")
+                    st.error(f"🔴 {fault.replace('_', ' ').title()}: {prob_percent:.1f}%")
                 elif prob_percent > 40:
-                    st.warning(f"🟡 {fault}: {prob_percent:.1f}%")
+                    st.warning(f"🟡 {fault.replace('_', ' ').title()}: {prob_percent:.1f}%")
                 else:
-                    st.info(f"🔵 {fault}: {prob_percent:.1f}%")
+                    st.info(f"🔵 {fault.replace('_', ' ').title()}: {prob_percent:.1f}%")
         else:
-            st.success("✅ Критических неисправностей не обнаружено")
+            st.success("✅ No critical faults detected")
     
     with col2:
-        st.write("**💡 Рекомендации AI:**")
+        st.write("**💡 AI Recommendations:**")
         if analysis['risk_index'] >= 80:
             st.error(f"🚨 {analysis['recommendation']}")
         elif analysis['risk_index'] >= 60:
@@ -404,22 +404,22 @@ def main():
         else:
             st.success(f"✅ {analysis['recommendation']}")
     
-    # РЯД 5: ДАННЫЕ СЕНСОРОВ В РЕАЛЬНОМ ВРЕМЕНИ
-    st.subheader("📡 Данные сенсоров в реальном времени")
+    # ROW 5: REAL-TIME SENSOR DATA
+    st.subheader("📡 Real-time Sensor Data")
     
     sensor_cols = st.columns(4)
     sensor_metrics = {
-        "Вибрация X": f"{sensor_data['VIB_PUMP_A_X']:.2f} mm/s",
-        "Вибрация Y": f"{sensor_data['VIB_PUMP_A_Y']:.2f} mm/s",
-        "Температура насоса": f"{sensor_data['TEMP_PUMP_A']:.1f} °C", 
-        "Обороты": f"{sensor_data['RPM_PUMP_A']} RPM"
+        "Vibration X": f"{sensor_data['VIB_PUMP_A_X']:.2f} mm/s",
+        "Vibration Y": f"{sensor_data['VIB_PUMP_A_Y']:.2f} mm/s",
+        "Pump Temperature": f"{sensor_data['TEMP_PUMP_A']:.1f} °C", 
+        "RPM": f"{sensor_data['RPM_PUMP_A']} RPM"
     }
     
     for i, (name, value) in enumerate(sensor_metrics.items()):
         with sensor_cols[i]:
             st.metric(name, value)
     
-    # Автоматическое обновление
+    # Auto-refresh
     time.sleep(1)
     st.rerun()
 
